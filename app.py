@@ -16,11 +16,12 @@ st.set_page_config(
 st.title("🐱 Cat Face Swap - Замена мордочек котов")
 st.markdown("Загрузите базовое изображение и фото с мордочкой кота для замены")
 
-# Получение токена из secrets
+# Получение токенов из secrets
 OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", "")
+GOOGLE_AI_STUDIO_KEY = st.secrets.get("GOOGLE_AI_STUDIO_KEY", "")
 
-if not OPENROUTER_API_KEY:
-    st.error("⚠️ OpenRouter API ключ не найден! Добавьте OPENROUTER_API_KEY в Streamlit secrets.")
+if not OPENROUTER_API_KEY and not GOOGLE_AI_STUDIO_KEY:
+    st.error("⚠️ API ключ не найден! Добавьте OPENROUTER_API_KEY или GOOGLE_AI_STUDIO_KEY в Streamlit secrets.")
     st.stop()
 
 
@@ -114,6 +115,88 @@ Make sure to reference both images in your analysis."""
         return None
 
 
+def call_google_ai_studio(base_image_b64, cat_face_b64, custom_prompt, model="gemini-2.0-flash-exp"):
+    """
+    Вызов Google AI Studio API для анализа изображений
+    """
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GOOGLE_AI_STUDIO_KEY}"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    # Формируем промпт для Google AI Studio
+    user_message = f"""I need your help with a face swap task. I'm providing you with TWO images:
+
+IMAGE 1 (Base/Target image): This is the BASE image where I want to place a cat face.
+
+IMAGE 2 (Source image): This is the photo with the CAT FACE that should be extracted and placed on the base image.
+
+Task: {custom_prompt}
+
+Please analyze BOTH images and provide:
+1. Description of the first (base) image - where should the cat face be placed
+2. Description of the second (source) image - where is the cat face located
+3. Step-by-step instructions for swapping the cat face from image 2 onto image 1
+4. What adjustments need to be made (size, angle, lighting, positioning)
+
+Make sure to reference both images in your analysis."""
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": "Here is IMAGE 1 (BASE IMAGE - where we want to place the cat face):"
+                    },
+                    {
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": base_image_b64
+                        }
+                    },
+                    {
+                        "text": "Here is IMAGE 2 (SOURCE IMAGE - the cat face to extract and use):"
+                    },
+                    {
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": cat_face_b64
+                        }
+                    },
+                    {
+                        "text": user_message
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 2048
+        }
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+
+        # Выводим информацию о модели
+        st.info(f"🤖 Использована модель Google AI Studio: {model}")
+
+        # Извлекаем текст из ответа Google AI
+        if 'candidates' in result and len(result['candidates']) > 0:
+            content = result['candidates'][0]['content']
+            if 'parts' in content and len(content['parts']) > 0:
+                return content['parts'][0]['text']
+        return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Ошибка при вызове Google AI Studio API: {str(e)}")
+        if hasattr(e, 'response') and hasattr(e.response, 'text'):
+            st.error(f"Детали ошибки: {e.response.text}")
+        return None
+
+
 def call_openrouter_image_generation(prompt, base_image_b64=None):
     """
     Вызов OpenRouter API для генерации изображения
@@ -171,21 +254,51 @@ with st.sidebar:
         key="cat_face"
     )
 
-    st.subheader("3️⃣ Выбор AI модели")
-    model_choice = st.selectbox(
-        "Выберите модель для анализа",
-        options=[
-            "anthropic/claude-3.5-sonnet:beta",
-            "anthropic/claude-3-5-sonnet-20241022",
-            "google/gemini-pro-1.5",
-            "openai/gpt-4-vision-preview",
-            "google/gemini-flash-1.5"
-        ],
-        index=0,
-        help="Разные модели могут давать разные результаты. Claude обычно лучше для детального анализа."
+    st.subheader("3️⃣ Выбор AI провайдера")
+
+    # Определяем доступные провайдеры
+    available_providers = []
+    if OPENROUTER_API_KEY:
+        available_providers.append("OpenRouter")
+    if GOOGLE_AI_STUDIO_KEY:
+        available_providers.append("Google AI Studio")
+
+    provider_choice = st.radio(
+        "Выберите AI провайдера",
+        options=available_providers,
+        index=len(available_providers) - 1 if len(available_providers) > 0 else 0,
+        help="OpenRouter - доступ к различным моделям. Google AI Studio - прямой доступ к Gemini моделям."
     )
 
-    st.subheader("4️⃣ Промпт для обработки")
+    st.subheader("4️⃣ Выбор модели")
+
+    if provider_choice == "OpenRouter":
+        model_choice = st.selectbox(
+            "Выберите модель для анализа",
+            options=[
+                "anthropic/claude-3.5-sonnet:beta",
+                "anthropic/claude-3-5-sonnet-20241022",
+                "google/gemini-pro-1.5",
+                "openai/gpt-4-vision-preview",
+                "google/gemini-flash-1.5"
+            ],
+            index=0,
+            help="Разные модели могут давать разные результаты. Claude обычно лучше для детального анализа."
+        )
+    else:  # Google AI Studio
+        model_choice = st.selectbox(
+            "Выберите Gemini модель",
+            options=[
+                "gemini-2.0-flash-exp",
+                "gemini-1.5-pro-latest",
+                "gemini-1.5-flash-latest",
+                "gemini-1.5-flash-8b"
+            ],
+            index=0,
+            help="Gemini 2.0 Flash - экспериментальная модель с улучшенной работой с изображениями (Nano Banana)."
+        )
+
+    st.subheader("5️⃣ Промпт для обработки")
     custom_prompt = st.text_area(
         "Опишите как должна быть размещена мордочка кота",
         value="Аккуратно разместить мордочку кота из второго изображения на первом изображении, сохраняя естественный вид и правильные пропорции.",
@@ -230,7 +343,8 @@ if process_button:
     if not base_image_file or not cat_face_file:
         st.error("⚠️ Пожалуйста, загрузите оба изображения!")
     else:
-        with st.spinner("🔄 Обработка изображений через OpenRouter API..."):
+        provider_name = f"{provider_choice} API"
+        with st.spinner(f"🔄 Обработка изображений через {provider_name}..."):
             # Конвертируем изображения в base64
             base_image = Image.open(BytesIO(base_image_file.getvalue()))
             cat_face_image = Image.open(BytesIO(cat_face_file.getvalue()))
@@ -243,9 +357,13 @@ if process_button:
             base_image_b64 = encode_image_to_base64(base_image)
             cat_face_b64 = encode_image_to_base64(cat_face_image)
 
-            # Вызов OpenRouter Vision API для анализа
-            st.info(f"📊 Анализ изображений с помощью AI (модель: {model_choice})...")
-            analysis_result = call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt, model=model_choice)
+            # Вызов API для анализа
+            st.info(f"📊 Анализ изображений с помощью AI ({provider_choice} - {model_choice})...")
+
+            if provider_choice == "OpenRouter":
+                analysis_result = call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt, model=model_choice)
+            else:  # Google AI Studio
+                analysis_result = call_google_ai_studio(base_image_b64, cat_face_b64, custom_prompt, model=model_choice)
 
             if analysis_result:
                 st.success("✅ Анализ завершен!")
