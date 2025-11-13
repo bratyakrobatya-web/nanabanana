@@ -91,7 +91,7 @@ with col1:
     if uploaded_file_1 is not None:
         try:
             image_1 = Image.open(uploaded_file_1)
-            st.image(image_1, caption="Референс 1", use_container_width=True)
+            st.image(image_1, caption="Референс 1", use_column_width=True)
         except Exception as e:
             st.error(f"Ошибка загрузки изображения 1: {e}")
 
@@ -105,7 +105,7 @@ with col2:
     if uploaded_file_2 is not None:
         try:
             image_2 = Image.open(uploaded_file_2)
-            st.image(image_2, caption="Референс 2", use_container_width=True)
+            st.image(image_2, caption="Референс 2", use_column_width=True)
         except Exception as e:
             st.error(f"Ошибка загрузки изображения 2: {e}")
 
@@ -253,7 +253,7 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
             try:
                 # Imagen возвращает объект с _pil_image
                 img = image_result._pil_image
-                st.image(img, caption=f"Результат {idx + 1}", use_container_width=True)
+                st.image(img, caption=f"Результат {idx + 1}", use_column_width=True)
                 
                 # Кнопка скачивания
                 buf = io.BytesIO()
