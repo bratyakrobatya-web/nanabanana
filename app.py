@@ -178,7 +178,7 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.subheader("📷 Базовое изображение")
     if base_image_file:
-        base_image = Image.open(base_image_file)
+        base_image = Image.open(BytesIO(base_image_file.getvalue()))
         st.image(base_image, use_container_width=True)
     else:
         st.info("Загрузите базовое изображение")
@@ -186,7 +186,7 @@ with col1:
 with col2:
     st.subheader("🐱 Мордочка кота")
     if cat_face_file:
-        cat_face_image = Image.open(cat_face_file)
+        cat_face_image = Image.open(BytesIO(cat_face_file.getvalue()))
         st.image(cat_face_image, use_container_width=True)
     else:
         st.info("Загрузите фото кота")
@@ -209,8 +209,8 @@ if process_button:
     else:
         with st.spinner("🔄 Обработка изображений через OpenRouter API..."):
             # Конвертируем изображения в base64
-            base_image = Image.open(base_image_file)
-            cat_face_image = Image.open(cat_face_file)
+            base_image = Image.open(BytesIO(base_image_file.getvalue()))
+            cat_face_image = Image.open(BytesIO(cat_face_file.getvalue()))
 
             # Изменяем размер для оптимизации
             max_size = (1024, 1024)
