@@ -179,7 +179,7 @@ with col1:
     st.subheader("📷 Базовое изображение")
     if base_image_file:
         base_image = Image.open(BytesIO(base_image_file.getvalue()))
-        st.image(base_image, use_container_width=True)
+        st.image(base_image, use_column_width=True)
     else:
         st.info("Загрузите базовое изображение")
 
@@ -187,7 +187,7 @@ with col2:
     st.subheader("🐱 Мордочка кота")
     if cat_face_file:
         cat_face_image = Image.open(BytesIO(cat_face_file.getvalue()))
-        st.image(cat_face_image, use_container_width=True)
+        st.image(cat_face_image, use_column_width=True)
     else:
         st.info("Загрузите фото кота")
 
