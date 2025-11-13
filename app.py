@@ -21,7 +21,7 @@ def load_font_as_base64(font_path):
 # Load custom font
 font_base64 = load_font_as_base64("ArexaDemo-Regular.otf")
 
-# Dark metallic style
+# Dark metallic style with red accents
 st.markdown(f"""
 <style>
     @font-face {{
@@ -40,10 +40,10 @@ st.markdown(f"""
         background: transparent;
     }}
 
-    /* Apply font to all text elements except emojis */
+    /* Apply font to all text elements - RED COLOR */
     h1, h2, h3, h4, h5, h6, p, div:not(.stTitle), span, label, .stMarkdown, .stText {{
         font-family: 'ArexaDemo', sans-serif !important;
-        color: #e0e0e0 !important;
+        color: #ff0000 !important;
     }}
 
     /* Keep emoji in original font */
@@ -51,71 +51,78 @@ st.markdown(f"""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
     }}
 
-    /* Headers with metallic effect */
+    /* Headers with metallic red effect - INCREASED SIZE +2px */
     h1 {{
-        background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 50%, #808080 100%);
+        background: linear-gradient(180deg, #ff6666 0%, #ff0000 50%, #cc0000 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        font-size: 3.5rem !important;
+        font-size: 3.625rem !important;
         font-weight: bold !important;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        text-shadow: 0 2px 4px rgba(255,0,0,0.5);
     }}
 
     h2 {{
-        background: linear-gradient(180deg, #f0f0f0 0%, #b0b0b0 100%);
+        background: linear-gradient(180deg, #ff4444 0%, #ff0000 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        font-size: 2rem !important;
+        font-size: 2.125rem !important;
     }}
 
     h3 {{
-        color: #c0c0c0 !important;
-        font-size: 1.5rem !important;
+        color: #ff0000 !important;
+        font-size: 1.625rem !important;
+    }}
+
+    /* Regular text - RED +2px */
+    p, div, span, label {{
+        font-size: calc(1rem + 2px) !important;
     }}
 
     /* Sidebar styling */
     section[data-testid="stSidebar"] {{
         background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%);
-        border-right: 2px solid #404040;
+        border-right: 2px solid #ff0000;
     }}
 
-    /* Button styling */
+    /* Button styling - RED BACKGROUND */
     .stButton > button {{
         font-family: 'ArexaDemo', sans-serif !important;
-        background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
+        background: linear-gradient(135deg, #cc0000 0%, #990000 100%);
         color: #ffffff !important;
-        border: 2px solid #606060;
+        border: 2px solid #ff0000;
         border-radius: 8px;
         font-weight: bold;
+        font-size: calc(1rem + 2px) !important;
         transition: all 0.3s ease;
     }}
 
     .stButton > button:hover {{
-        background: linear-gradient(135deg, #5a5a5a 0%, #3a3a3a 100%);
-        border-color: #808080;
-        box-shadow: 0 4px 8px rgba(255,255,255,0.1);
+        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+        border-color: #ff4444;
+        box-shadow: 0 4px 8px rgba(255,0,0,0.3);
     }}
 
-    /* Primary button */
+    /* Primary button - BRIGHTER RED */
     .stButton > button[kind="primary"] {{
-        background: linear-gradient(135deg, #6a6a6a 0%, #4a4a4a 100%);
-        border: 2px solid #909090;
+        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+        border: 2px solid #ff4444;
     }}
 
     .stButton > button[kind="primary"]:hover {{
-        background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
-        box-shadow: 0 6px 12px rgba(255,255,255,0.2);
+        background: linear-gradient(135deg, #ff3333 0%, #ff0000 100%);
+        box-shadow: 0 6px 12px rgba(255,0,0,0.5);
     }}
 
     /* Text input and textarea styling */
     .stTextArea textarea, .stTextInput input {{
         font-family: 'ArexaDemo', sans-serif !important;
         background-color: #2a2a2a !important;
-        color: #ffffff !important;
-        border: 2px solid #404040 !important;
+        color: #ff0000 !important;
+        border: 2px solid #ff0000 !important;
         border-radius: 6px;
+        font-size: calc(1rem + 2px) !important;
     }}
 
     /* White placeholder text */
@@ -133,28 +140,61 @@ st.markdown(f"""
     }}
 
     section[data-testid="stFileUploader"] label {{
-        color: #ffffff !important;
+        color: #ff0000 !important;
+        font-size: calc(1rem + 2px) !important;
     }}
 
     section[data-testid="stFileUploader"] small {{
-        color: #cccccc !important;
+        color: #ff6666 !important;
+        font-size: calc(0.875rem + 2px) !important;
     }}
 
-    /* Metrics styling */
+    /* Metrics styling - RED */
     div[data-testid="stMetricValue"] {{
-        color: #c0c0c0 !important;
+        color: #ff0000 !important;
+        font-size: calc(2rem + 2px) !important;
     }}
 
-    /* Alert blocks styling */
+    div[data-testid="stMetricLabel"] {{
+        color: #ff0000 !important;
+        font-size: calc(0.875rem + 2px) !important;
+    }}
+
+    /* Alert blocks styling - RED */
     .stAlert {{
         background-color: #2a2a2a !important;
-        border: 1px solid #404040 !important;
-        color: #e0e0e0 !important;
+        border: 1px solid #ff0000 !important;
+        color: #ff0000 !important;
     }}
 
-    /* Dividers */
+    /* Dividers - RED */
     hr {{
-        border-color: #404040 !important;
+        border-color: #ff0000 !important;
+    }}
+
+    /* Logo styling */
+    .logo-container {{
+        text-align: center;
+        margin-bottom: 20px;
+    }}
+
+    .logo-container img {{
+        max-width: 200px;
+        border: 2px solid #ff0000;
+        border-radius: 8px;
+    }}
+
+    /* Metal quote styling */
+    .metal-quote {{
+        font-family: 'ArexaDemo', sans-serif;
+        color: #ff0000;
+        font-size: calc(1.1rem + 2px);
+        font-style: italic;
+        text-align: center;
+        padding: 15px;
+        border-left: 4px solid #ff0000;
+        background: rgba(255, 0, 0, 0.05);
+        margin: 20px 0;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -207,23 +247,26 @@ st.title("🍌 Nano Banana - Image Generator")
 st.markdown("### 9:16 Image Generator")
 st.markdown("Upload up to 2 reference images and describe your desired result. All images will be automatically converted to vertical 9:16 format.")
 
-# Sidebar with settings
+# Sidebar with logo and metal quote
 with st.sidebar:
-    st.header("⚙️ Generation Settings")
-
-    st.info("**Model:** google/nano-banana")
+    # Logo (if logo.avif exists)
+    try:
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.image("logo.avif", use_column_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    except:
+        pass  # Logo not found, continue without it
 
     st.divider()
 
-    st.markdown("### 💡 Tips:")
+    # Metal-style inspirational quote with metaphors
     st.markdown("""
-    - Upload 1-2 reference images
-    - All images automatically convert to 9:16
-    - Image orientation corrected automatically
-    - Describe desired changes in detail
-    - Specify concrete style
-    - Maximum 3 results at once
-    """)
+    <div class="metal-quote">
+        "In metaphors of steel and fire,<br>
+        Where darkness meets desire,<br>
+        Create your vision, unleash the power."
+    </div>
+    """, unsafe_allow_html=True)
 
     st.divider()
 
@@ -460,10 +503,10 @@ with st.expander("ℹ️ How It Works"):
 st.divider()
 st.markdown("""
 <div style='text-align: center; padding: 20px;'>
-    <p style='color: #808080; font-family: ArexaDemo, sans-serif; font-size: 0.9rem;'>
+    <p style='color: #ff0000; font-family: ArexaDemo, sans-serif; font-size: calc(0.9rem + 2px);'>
         Powered by Google Nano Banana via Replicate | Streamlit
     </p>
-    <p style='color: #606060; font-family: ArexaDemo, sans-serif; font-size: 0.8rem;'>
+    <p style='color: #cc0000; font-family: ArexaDemo, sans-serif; font-size: calc(0.8rem + 2px);'>
         Format: 9:16 | EXIF Auto-Correction | Metal Dark Theme
     </p>
 </div>
