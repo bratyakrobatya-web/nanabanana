@@ -21,14 +21,9 @@ def load_font_as_base64(font_path):
 # Load custom font
 font_base64 = load_font_as_base64("ArexaDemo-Regular.otf")
 
-# Dark metallic style with red accents
+# Dark metallic style with white text
 st.markdown(f"""
 <style>
-    @font-face {{
-        font-family: 'ArexaDemo';
-        src: url(data:font/otf;base64,{font_base64}) format('opentype');
-    }}
-
     /* Main app styling */
     .stApp {{
         background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
@@ -40,58 +35,45 @@ st.markdown(f"""
         background: transparent;
     }}
 
-    /* Apply font to all text elements - RED COLOR */
-    h1, h2, h3, h4, h5, h6, p, div:not(.stTitle), span, label, .stMarkdown, .stText {{
-        font-family: 'ArexaDemo', sans-serif !important;
-        color: #ff0000 !important;
+    /* Default white text color */
+    h1, h2, h3, h4, h5, h6, p, div, span, label, .stMarkdown, .stText {{
+        color: #ffffff !important;
     }}
 
-    /* Keep emoji in original font */
-    .stTitle {{
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    }}
-
-    /* Headers with metallic red effect - INCREASED SIZE +2px */
+    /* Headers styling */
     h1 {{
-        background: linear-gradient(180deg, #ff6666 0%, #ff0000 50%, #cc0000 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
         font-size: 3.625rem !important;
         font-weight: bold !important;
-        text-shadow: 0 2px 4px rgba(255,0,0,0.5);
+        color: #ffffff !important;
     }}
 
     h2 {{
-        background: linear-gradient(180deg, #ff4444 0%, #ff0000 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
         font-size: 2.125rem !important;
+        color: #e0e0e0 !important;
     }}
 
     h3 {{
-        color: #ff0000 !important;
+        color: #e0e0e0 !important;
         font-size: 1.625rem !important;
     }}
 
-    /* Regular text - RED +2px */
+    /* Regular text */
     p, div, span, label {{
         font-size: calc(1rem + 2px) !important;
+        color: #ffffff !important;
     }}
 
     /* Sidebar styling */
     section[data-testid="stSidebar"] {{
         background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%);
-        border-right: 2px solid #ff0000;
+        border-right: 2px solid #404040;
     }}
 
-    /* Button styling - RED BACKGROUND */
+    /* Button styling */
     .stButton > button {{
-        font-family: 'ArexaDemo', sans-serif !important;
-        background: linear-gradient(135deg, #cc0000 0%, #990000 100%);
+        background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
         color: #ffffff !important;
-        border: 2px solid #ff0000;
+        border: 2px solid #606060;
         border-radius: 8px;
         font-weight: bold;
         font-size: calc(1rem + 2px) !important;
@@ -99,28 +81,27 @@ st.markdown(f"""
     }}
 
     .stButton > button:hover {{
-        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
-        border-color: #ff4444;
-        box-shadow: 0 4px 8px rgba(255,0,0,0.3);
+        background: linear-gradient(135deg, #5a5a5a 0%, #3a3a3a 100%);
+        border-color: #808080;
+        box-shadow: 0 4px 8px rgba(255,255,255,0.1);
     }}
 
-    /* Primary button - BRIGHTER RED */
+    /* Primary button */
     .stButton > button[kind="primary"] {{
-        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
-        border: 2px solid #ff4444;
+        background: linear-gradient(135deg, #6a6a6a 0%, #4a4a4a 100%);
+        border: 2px solid #909090;
     }}
 
     .stButton > button[kind="primary"]:hover {{
-        background: linear-gradient(135deg, #ff3333 0%, #ff0000 100%);
-        box-shadow: 0 6px 12px rgba(255,0,0,0.5);
+        background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
+        box-shadow: 0 6px 12px rgba(255,255,255,0.2);
     }}
 
     /* Text input and textarea styling */
     .stTextArea textarea, .stTextInput input {{
-        font-family: 'ArexaDemo', sans-serif !important;
         background-color: #2a2a2a !important;
-        color: #ff0000 !important;
-        border: 2px solid #ff0000 !important;
+        color: #ffffff !important;
+        border: 2px solid #404040 !important;
         border-radius: 6px;
         font-size: calc(1rem + 2px) !important;
     }}
@@ -140,36 +121,36 @@ st.markdown(f"""
     }}
 
     section[data-testid="stFileUploader"] label {{
-        color: #ff0000 !important;
+        color: #ffffff !important;
         font-size: calc(1rem + 2px) !important;
     }}
 
     section[data-testid="stFileUploader"] small {{
-        color: #ff6666 !important;
+        color: #cccccc !important;
         font-size: calc(0.875rem + 2px) !important;
     }}
 
-    /* Metrics styling - RED */
+    /* Metrics styling */
     div[data-testid="stMetricValue"] {{
-        color: #ff0000 !important;
+        color: #ffffff !important;
         font-size: calc(2rem + 2px) !important;
     }}
 
     div[data-testid="stMetricLabel"] {{
-        color: #ff0000 !important;
+        color: #e0e0e0 !important;
         font-size: calc(0.875rem + 2px) !important;
     }}
 
-    /* Alert blocks styling - RED */
+    /* Alert blocks styling */
     .stAlert {{
         background-color: #2a2a2a !important;
-        border: 1px solid #ff0000 !important;
-        color: #ff0000 !important;
+        border: 1px solid #404040 !important;
+        color: #e0e0e0 !important;
     }}
 
-    /* Dividers - RED */
+    /* Dividers */
     hr {{
-        border-color: #ff0000 !important;
+        border-color: #404040 !important;
     }}
 
     /* Logo styling */
@@ -180,21 +161,8 @@ st.markdown(f"""
 
     .logo-container img {{
         max-width: 200px;
-        border: 2px solid #ff0000;
+        border: 2px solid #404040;
         border-radius: 8px;
-    }}
-
-    /* Metal quote styling */
-    .metal-quote {{
-        font-family: 'ArexaDemo', sans-serif;
-        color: #ff0000;
-        font-size: calc(1.1rem + 2px);
-        font-style: italic;
-        text-align: center;
-        padding: 15px;
-        border-left: 4px solid #ff0000;
-        background: rgba(255, 0, 0, 0.05);
-        margin: 20px 0;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -247,7 +215,7 @@ st.title("🍌 Nano Banana - Image Generator")
 st.markdown("### 9:16 Image Generator")
 st.markdown("Upload up to 2 reference images and describe your desired result. All images will be automatically converted to vertical 9:16 format.")
 
-# Sidebar with logo and metal quote
+# Sidebar with logo
 with st.sidebar:
     # Logo (if logo.avif exists)
     try:
@@ -256,17 +224,6 @@ with st.sidebar:
         st.markdown('</div>', unsafe_allow_html=True)
     except:
         pass  # Logo not found, continue without it
-
-    st.divider()
-
-    # Metal-style inspirational quote with metaphors
-    st.markdown("""
-    <div class="metal-quote">
-        "In metaphors of steel and fire,<br>
-        Where darkness meets desire,<br>
-        Create your vision, unleash the power."
-    </div>
-    """, unsafe_allow_html=True)
 
     st.divider()
 
@@ -503,10 +460,10 @@ with st.expander("ℹ️ How It Works"):
 st.divider()
 st.markdown("""
 <div style='text-align: center; padding: 20px;'>
-    <p style='color: #ff0000; font-family: ArexaDemo, sans-serif; font-size: calc(0.9rem + 2px);'>
+    <p style='color: #ffffff; font-size: calc(0.9rem + 2px);'>
         Powered by Google Nano Banana via Replicate | Streamlit
     </p>
-    <p style='color: #cc0000; font-family: ArexaDemo, sans-serif; font-size: calc(0.8rem + 2px);'>
+    <p style='color: #cccccc; font-size: calc(0.8rem + 2px);'>
         Format: 9:16 | EXIF Auto-Correction | Metal Dark Theme
     </p>
 </div>
