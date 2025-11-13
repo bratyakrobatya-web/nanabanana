@@ -6,22 +6,22 @@ from datetime import datetime
 import requests
 import base64
 
-# Настройка страницы
+# Page configuration
 st.set_page_config(
     page_title="Nano Banana Image Generator",
     page_icon="🍌",
     layout="wide"
 )
 
-# Функция для загрузки шрифта в base64
+# Function to load font as base64
 def load_font_as_base64(font_path):
     with open(font_path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-# Загружаем кастомный шрифт
+# Load custom font
 font_base64 = load_font_as_base64("ArexaDemo-Regular.otf")
 
-# Темный металлический стиль
+# Dark metallic style
 st.markdown(f"""
 <style>
     @font-face {{
@@ -29,24 +29,29 @@ st.markdown(f"""
         src: url(data:font/otf;base64,{font_base64}) format('opentype');
     }}
 
-    /* Основной стиль приложения */
+    /* Main app styling */
     .stApp {{
         background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
         background-attachment: fixed;
     }}
 
-    /* Металлический фон для контейнеров */
+    /* Metallic background for containers */
     .stApp > div {{
         background: transparent;
     }}
 
-    /* Применяем шрифт ко всем текстовым элементам */
-    h1, h2, h3, h4, h5, h6, p, div, span, label, .stMarkdown, .stText {{
+    /* Apply font to all text elements except emojis */
+    h1, h2, h3, h4, h5, h6, p, div:not(.stTitle), span, label, .stMarkdown, .stText {{
         font-family: 'ArexaDemo', sans-serif !important;
         color: #e0e0e0 !important;
     }}
 
-    /* Заголовки с металлическим эффектом */
+    /* Keep emoji in original font */
+    .stTitle {{
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }}
+
+    /* Headers with metallic effect */
     h1 {{
         background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 50%, #808080 100%);
         -webkit-background-clip: text;
@@ -70,13 +75,13 @@ st.markdown(f"""
         font-size: 1.5rem !important;
     }}
 
-    /* Стиль для боковой панели */
+    /* Sidebar styling */
     section[data-testid="stSidebar"] {{
         background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%);
         border-right: 2px solid #404040;
     }}
 
-    /* Стиль для кнопок */
+    /* Button styling */
     .stButton > button {{
         font-family: 'ArexaDemo', sans-serif !important;
         background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
@@ -93,7 +98,7 @@ st.markdown(f"""
         box-shadow: 0 4px 8px rgba(255,255,255,0.1);
     }}
 
-    /* Основная кнопка */
+    /* Primary button */
     .stButton > button[kind="primary"] {{
         background: linear-gradient(135deg, #6a6a6a 0%, #4a4a4a 100%);
         border: 2px solid #909090;
@@ -104,7 +109,7 @@ st.markdown(f"""
         box-shadow: 0 6px 12px rgba(255,255,255,0.2);
     }}
 
-    /* Текстовые поля */
+    /* Text input and textarea styling */
     .stTextArea textarea, .stTextInput input {{
         font-family: 'ArexaDemo', sans-serif !important;
         background-color: #2a2a2a !important;
@@ -113,102 +118,124 @@ st.markdown(f"""
         border-radius: 6px;
     }}
 
-    /* Стиль для метрик */
+    /* White placeholder text */
+    .stTextArea textarea::placeholder {{
+        color: #ffffff !important;
+        opacity: 0.7;
+    }}
+
+    /* File uploader - black background with red dashed border */
+    section[data-testid="stFileUploader"] > div {{
+        background-color: #000000 !important;
+        border: 3px dashed #ff0000 !important;
+        border-radius: 8px;
+        padding: 20px;
+    }}
+
+    section[data-testid="stFileUploader"] label {{
+        color: #ffffff !important;
+    }}
+
+    section[data-testid="stFileUploader"] small {{
+        color: #cccccc !important;
+    }}
+
+    /* Metrics styling */
     div[data-testid="stMetricValue"] {{
         color: #c0c0c0 !important;
     }}
 
-    /* Информационные блоки */
+    /* Alert blocks styling */
     .stAlert {{
         background-color: #2a2a2a !important;
         border: 1px solid #404040 !important;
         color: #e0e0e0 !important;
     }}
 
-    /* Разделители */
+    /* Dividers */
     hr {{
         border-color: #404040 !important;
     }}
 </style>
 """, unsafe_allow_html=True)
 
-# Функция для исправления ориентации изображения и преобразования в 9:16
+# Function to fix image orientation and convert to 9:16
 def fix_image_orientation_and_resize(image):
-    """Исправляет ориентацию изображения на основе EXIF и преобразует в формат 9:16"""
+    """Fixes image orientation based on EXIF and converts to 9:16 format"""
     try:
-        # Исправляем ориентацию на основе EXIF данных
+        # Fix orientation based on EXIF data
         from PIL import ImageOps
         image = ImageOps.exif_transpose(image)
 
-        # Целевое соотношение сторон 9:16 (вертикальный формат)
+        # Target aspect ratio 9:16 (vertical format)
         target_ratio = 9 / 16
         width, height = image.size
         current_ratio = width / height
 
-        # Если изображение горизонтальное или квадратное, обрезаем/изменяем размер
+        # If image is horizontal or square, crop/resize
         if current_ratio > target_ratio:
-            # Изображение слишком широкое, обрезаем по бокам
+            # Image too wide, crop sides
             new_width = int(height * target_ratio)
             left = (width - new_width) // 2
             image = image.crop((left, 0, left + new_width, height))
         elif current_ratio < target_ratio:
-            # Изображение слишком высокое, обрезаем сверху и снизу
+            # Image too tall, crop top and bottom
             new_height = int(width / target_ratio)
             top = (height - new_height) // 2
             image = image.crop((0, top, width, top + new_height))
 
-        # Изменяем размер до стандартного разрешения 9:16
-        # Используем 1080x1920 как базовый размер для вертикального формата
+        # Resize to standard 9:16 resolution
+        # Using 1080x1920 as base size for vertical format
         target_width = 1080
         target_height = 1920
         image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
         return image
     except Exception as e:
-        st.warning(f"Не удалось обработать изображение: {e}")
+        st.warning(f"Failed to process image: {e}")
         return image
 
-# Инициализация Replicate API
+# Initialize Replicate API
 try:
     replicate_client = replicate.Client(api_token=st.secrets["REPLICATE_API_TOKEN"])
 except Exception as e:
-    st.error("⚠️ Ошибка подключения к Replicate API. Проверьте токен в secrets.toml")
+    st.error("⚠️ Error connecting to Replicate API. Check your token in secrets.toml")
     st.stop()
 
-# Заголовок
+# Title
 st.title("🍌 Nano Banana - Image Generator")
-st.markdown("### Генератор изображений в формате 9:16")
-st.markdown("Загрузите до 2-х референсных изображений и опишите желаемый результат. Все изображения будут автоматически преобразованы в вертикальный формат 9:16.")
+st.markdown("### 9:16 Image Generator")
+st.markdown("Upload up to 2 reference images and describe your desired result. All images will be automatically converted to vertical 9:16 format.")
 
-# Боковая панель с настройками
+# Sidebar with settings
 with st.sidebar:
-    st.header("⚙️ Настройки генерации")
-    
-    st.info("**Модель:** google/nano-banana")
-    
-    st.divider()
-    
-    st.markdown("### 💡 Советы:")
-    st.markdown("""
-    - Загрузите 1-2 референсных изображения
-    - Все изображения автоматически конвертируются в 9:16
-    - Ориентация изображений корректируется автоматически
-    - Опишите желаемые изменения детально
-    - Укажите конкретный стиль
-    - Максимум 3 результата за раз
-    """)
-    
-    st.divider()
-    
-    if 'generated_count' in st.session_state:
-        st.metric("Изображений создано", st.session_state['generated_count'])
+    st.header("⚙️ Generation Settings")
 
-# Основная область - загрузка изображений
-st.subheader("📤 Загрузка референсных изображений")
+    st.info("**Model:** google/nano-banana")
+
+    st.divider()
+
+    st.markdown("### 💡 Tips:")
+    st.markdown("""
+    - Upload 1-2 reference images
+    - All images automatically convert to 9:16
+    - Image orientation corrected automatically
+    - Describe desired changes in detail
+    - Specify concrete style
+    - Maximum 3 results at once
+    """)
+
+    st.divider()
+
+    if 'generated_count' in st.session_state:
+        st.metric("Images Created", st.session_state['generated_count'])
+
+# Main area - image upload
+st.subheader("📤 Upload Reference Images")
 
 col1, col2 = st.columns(2)
 
-# Инициализация переменных для изображений
+# Initialize image variables
 image_1 = None
 image_2 = None
 uploaded_file_1 = None
@@ -216,58 +243,58 @@ uploaded_file_2 = None
 
 with col1:
     uploaded_file_1 = st.file_uploader(
-        "Изображение 1 (обязательно)",
+        "Image 1 (required)",
         type=['png', 'jpg', 'jpeg', 'webp'],
-        help="Загрузите первое референсное изображение - будет преобразовано в формат 9:16",
+        help="Upload first reference image - will be converted to 9:16 format",
         key="uploader_1"
     )
     if uploaded_file_1 is not None:
         try:
             image_1 = Image.open(uploaded_file_1)
-            # Применяем исправление ориентации и изменение размера
+            # Apply orientation fix and resize
             image_1 = fix_image_orientation_and_resize(image_1)
-            st.image(image_1, caption="Референс 1 (9:16)", width=300)
-            # Сохраняем обработанное изображение в session_state
+            st.image(image_1, caption="Reference 1 (9:16)", width=300)
+            # Save processed image in session_state
             buf = io.BytesIO()
             image_1.save(buf, format='PNG')
             buf.seek(0)
             st.session_state['image_1'] = buf
         except Exception as e:
-            st.error(f"Ошибка загрузки изображения 1: {e}")
+            st.error(f"Error loading image 1: {e}")
 
 with col2:
     uploaded_file_2 = st.file_uploader(
-        "Изображение 2 (опционально)",
+        "Image 2 (optional)",
         type=['png', 'jpg', 'jpeg', 'webp'],
-        help="Загрузите второе референсное изображение - будет преобразовано в формат 9:16",
+        help="Upload second reference image - will be converted to 9:16 format",
         key="uploader_2"
     )
     if uploaded_file_2 is not None:
         try:
             image_2 = Image.open(uploaded_file_2)
-            # Применяем исправление ориентации и изменение размера
+            # Apply orientation fix and resize
             image_2 = fix_image_orientation_and_resize(image_2)
-            st.image(image_2, caption="Референс 2 (9:16)", width=300)
-            # Сохраняем обработанное изображение в session_state
+            st.image(image_2, caption="Reference 2 (9:16)", width=300)
+            # Save processed image in session_state
             buf = io.BytesIO()
             image_2.save(buf, format='PNG')
             buf.seek(0)
             st.session_state['image_2'] = buf
         except Exception as e:
-            st.error(f"Ошибка загрузки изображения 2: {e}")
+            st.error(f"Error loading image 2: {e}")
 
-# Промпт
-st.subheader("✍️ Опишите желаемый результат")
+# Prompt
+st.subheader("✍️ Describe Your Desired Result")
 
 prompt = st.text_area(
-    "Промпт для генерации:",
-    placeholder="Например: Make the sheets in the style of the logo. Make the scene natural.",
+    "Generation Prompt:",
+    placeholder="Example: Make the sheets in the style of the logo. Make the scene natural.",
     height=120,
-    help="Опишите максимально детально, что должно получиться"
+    help="Describe in detail what you want to achieve"
 )
 
-# Примеры промптов
-with st.expander("📝 Примеры промптов"):
+# Prompt examples
+with st.expander("📝 Prompt Examples"):
     examples = [
         "Make the sheets in the style of the logo. Make the scene natural.",
         "Combine these images in cyberpunk style with neon lighting",
@@ -280,114 +307,114 @@ with st.expander("📝 Примеры промптов"):
             st.session_state['prompt_text'] = example
             st.rerun()
 
-# Применяем пример промпта если выбран
+# Apply example prompt if selected
 if 'prompt_text' in st.session_state and st.session_state['prompt_text']:
     prompt = st.session_state['prompt_text']
 
-# Кнопка генерации
+# Generate button
 st.divider()
 generate_button = st.button(
-    "🚀 Сгенерировать изображение",
+    "🚀 Generate Image",
     type="primary",
     use_container_width=True,
     disabled=(image_1 is None)
 )
 
-# Обработка генерации
+# Generation processing
 if generate_button:
     if not prompt or len(prompt.strip()) < 5:
-        st.warning("⚠️ Пожалуйста, введите описание (минимум 5 символов)")
+        st.warning("⚠️ Please enter a description (minimum 5 characters)")
     elif image_1 is None:
-        st.warning("⚠️ Загрузите хотя бы одно изображение")
+        st.warning("⚠️ Upload at least one image")
     else:
-        with st.spinner("🎨 Генерирую изображение... Это может занять 20-40 секунд..."):
+        with st.spinner("🎨 Generating image... This may take 20-40 seconds..."):
             try:
-                # Подготовка входных данных для Replicate
+                # Prepare input data for Replicate
                 input_data = {
                     "prompt": prompt,
                     "image_input": []
                 }
-                
-                # Добавляем изображения в массив
+
+                # Add images to array
                 if 'image_1' in st.session_state:
                     st.session_state['image_1'].seek(0)
                     input_data["image_input"].append(st.session_state['image_1'])
-                
+
                 if 'image_2' in st.session_state and image_2 is not None:
                     st.session_state['image_2'].seek(0)
                     input_data["image_input"].append(st.session_state['image_2'])
-                
-                # Запуск модели на Replicate
+
+                # Run model on Replicate
                 output = replicate_client.run(
                     "google/nano-banana",
                     input=input_data
                 )
-                
-                # Обработка результата
-                # output может быть URL или список URL
+
+                # Process result
+                # output can be URL or list of URLs
                 if output:
                     generated_images = []
 
-                    # Если output это строка (один URL)
+                    # If output is a string (single URL)
                     if isinstance(output, str):
                         output = [output]
 
-                    # Ограничиваем до 3 изображений максимум
+                    # Limit to 3 images maximum
                     output = output[:3]
 
-                    # Загружаем изображения по URL
+                    # Load images from URLs
                     for img_url in output:
                         try:
                             response = requests.get(img_url)
                             img = Image.open(io.BytesIO(response.content))
-                            # Применяем обработку к сгенерированным изображениям
+                            # Apply processing to generated images
                             img = fix_image_orientation_and_resize(img)
                             generated_images.append(img)
                         except Exception as e:
-                            st.warning(f"Не удалось загрузить изображение: {e}")
+                            st.warning(f"Failed to load image: {e}")
 
                     if generated_images:
                         st.session_state['generated_images'] = generated_images
 
-                        # Счетчик
+                        # Counter
                         if 'generated_count' not in st.session_state:
                             st.session_state['generated_count'] = 0
                         st.session_state['generated_count'] += len(generated_images)
 
-                        st.success(f"✅ Успешно сгенерировано {len(generated_images)} изображение(й) в формате 9:16!")
+                        st.success(f"✅ Successfully generated {len(generated_images)} image(s) in 9:16 format!")
                     else:
-                        st.error("❌ Не удалось получить изображения из ответа")
+                        st.error("❌ Failed to get images from response")
                 else:
-                    st.error("❌ Модель не вернула результат")
-                    
+                    st.error("❌ Model returned no result")
+
             except Exception as e:
                 error_message = str(e)
-                st.error(f"❌ Ошибка генерации: {error_message}")
-                
+                st.error(f"❌ Generation error: {error_message}")
+
                 st.info("""
-                **Возможные причины ошибки:**
-                - Проверьте правильность REPLICATE_API_TOKEN
-                - Убедитесь что модель google/nano-banana доступна
-                - Проверьте формат входных данных (schema модели)
-                - Возможно исчерпан лимит API
+                **Possible error causes:**
+                - Check REPLICATE_API_TOKEN is correct
+                - Ensure google/nano-banana model is available
+                - Check input data format (model schema)
+                - API limit may be exhausted
                 """)
 
-# Отображение результатов
+# Display results
 if 'generated_images' in st.session_state and st.session_state['generated_images']:
     st.divider()
-    st.subheader("🖼️ Сгенерированные изображения")
-    st.markdown("**Формат изображений: 9:16 (1080x1920)**")
+    st.subheader("🖼️ Generated Images")
+    st.markdown("**Image Format: 9:16 (1080x1920)**")
 
-    # Отображение в колонках (максимум 3)
+    # Display in columns (maximum 3)
     num_cols = min(len(st.session_state['generated_images']), 3)
     cols = st.columns(num_cols)
 
     for idx, img in enumerate(st.session_state['generated_images']):
         with cols[idx % num_cols]:
-            # Отображаем изображение с фиксированной шириной для формата 9:16
-            st.image(img, caption=f"Результат {idx + 1} (9:16)", width=300)
+            # Display image with fixed width for 9:16 format
+            st.image(img, caption=f"Result {idx + 1} (9:16)", width=300)
 
-            # Кнопка скачивания
+            # Download button
             buf = io.BytesIO()
             img.save(buf, format='PNG')
             byte_data = buf.getvalue()
@@ -396,7 +423,7 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
             filename = f"nano_banana_9x16_{timestamp}_{idx + 1}.png"
 
             st.download_button(
-                label="⬇️ Скачать PNG",
+                label="⬇️ Download PNG",
                 data=byte_data,
                 file_name=filename,
                 mime="image/png",
@@ -404,32 +431,32 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
                 use_container_width=True
             )
 
-# Информационный блок
-with st.expander("ℹ️ Как это работает"):
+# Information block
+with st.expander("ℹ️ How It Works"):
     st.markdown("""
-    ### Процесс генерации:
+    ### Generation Process:
 
-    1. **Загрузка референсов**: Вы загружаете 1-2 изображения
-    2. **Автоматическая обработка**: Изображения конвертируются в формат 9:16 (1080x1920)
-    3. **Исправление ориентации**: EXIF данные учитываются для правильного поворота
-    4. **Описание**: Указываете промпт с описанием желаемого результата
-    5. **Генерация**: Модель Nano Banana обрабатывает запрос через Replicate API
-    6. **Результат**: Получаете до 3 новых изображений в формате 9:16
+    1. **Upload References**: You upload 1-2 images
+    2. **Automatic Processing**: Images are converted to 9:16 format (1080x1920)
+    3. **Orientation Fix**: EXIF data is used for proper rotation
+    4. **Description**: You specify a prompt describing the desired result
+    5. **Generation**: Nano Banana model processes request via Replicate API
+    6. **Result**: You receive up to 3 new images in 9:16 format
 
-    ### Особенности приложения:
-    - **Формат 9:16**: Все изображения автоматически преобразуются в вертикальный формат
-    - **Без переворота**: EXIF ориентация учитывается автоматически
-    - **Темный стиль**: Металлический дизайн интерфейса
-    - **Кастомный шрифт**: ArexaDemo для уникального визуала
-    - **Ограничение**: Максимум 3 результата для оптимального просмотра
+    ### App Features:
+    - **9:16 Format**: All images automatically converted to vertical format
+    - **No Flipping**: EXIF orientation handled automatically
+    - **Dark Style**: Metallic interface design
+    - **Custom Font**: ArexaDemo for unique visual appeal
+    - **Limitation**: Maximum 3 results for optimal viewing
 
-    ### Модель: google/nano-banana
-    - Быстрая генерация изображений
-    - Поддержка image-to-image трансформаций
-    - Работает через Replicate API
+    ### Model: google/nano-banana
+    - Fast image generation
+    - Image-to-image transformation support
+    - Works via Replicate API
     """)
 
-# Футер
+# Footer
 st.divider()
 st.markdown("""
 <div style='text-align: center; padding: 20px;'>
