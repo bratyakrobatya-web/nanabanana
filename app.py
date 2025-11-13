@@ -1,59 +1,33 @@
 import streamlit as st
-import google.generativeai as genai
+import replicate
 from PIL import Image
 import io
 from datetime import datetime
-import base64
+import requests
 
 # Настройка страницы
 st.set_page_config(
-    page_title="Imagen 3 Image Editor",
-    page_icon="🎨",
+    page_title="Nano Banana Image Generator",
+    page_icon="🍌",
     layout="wide"
 )
 
-# Инициализация API
+# Инициализация Replicate API
 try:
-    genai.configure(api_key=st.secrets["GOOGLE_AI_STUDIO_KEY"])
+    replicate_client = replicate.Client(api_token=st.secrets["REPLICATE_API_TOKEN"])
 except Exception as e:
-    st.error("⚠️ Ошибка подключения к API. Проверьте ключ в secrets.toml")
+    st.error("⚠️ Ошибка подключения к Replicate API. Проверьте токен в secrets.toml")
     st.stop()
 
 # Заголовок
-st.title("🎨 Генерация изображений с Imagen 3")
+st.title("🍌 Nano Banana - Image Generator")
 st.markdown("Загрузите до 2-х изображений и опишите, что хотите получить")
 
 # Боковая панель с настройками
 with st.sidebar:
     st.header("⚙️ Настройки генерации")
     
-    num_outputs = st.slider(
-        "Количество вариантов",
-        min_value=1,
-        max_value=4,
-        value=1,
-        help="Сколько вариантов сгенерировать"
-    )
-    
-    aspect_ratio = st.selectbox(
-        "Соотношение сторон",
-        options=["1:1", "9:16", "16:9", "4:3", "3:4"],
-        index=0,
-        help="Формат результирующего изображения"
-    )
-    
-    safety_level = st.selectbox(
-        "Фильтр безопасности",
-        options=["block_some", "block_most", "block_few"],
-        index=0,
-        help="Уровень фильтрации контента"
-    )
-    
-    negative_prompt = st.text_input(
-        "Негативный промпт (что исключить)",
-        placeholder="low quality, blurry, distorted",
-        help="Что НЕ должно быть на изображении"
-    )
+    st.info("**Модель:** google/nano-banana")
     
     st.divider()
     
@@ -62,7 +36,7 @@ with st.sidebar:
     - Загрузите 1-2 референсных изображения
     - Опишите желаемые изменения детально
     - Укажите конкретный стиль
-    - Используйте негативный промпт для улучшения качества
+    - Будьте креативны с промптами
     """)
     
     st.divider()
@@ -92,6 +66,8 @@ with col1:
         try:
             image_1 = Image.open(uploaded_file_1)
             st.image(image_1, caption="Референс 1", use_column_width=True)
+            # Сохраняем в session_state для передачи в API
+            st.session_state['image_1'] = uploaded_file_1
         except Exception as e:
             st.error(f"Ошибка загрузки изображения 1: {e}")
 
@@ -106,6 +82,8 @@ with col2:
         try:
             image_2 = Image.open(uploaded_file_2)
             st.image(image_2, caption="Референс 2", use_column_width=True)
+            # Сохраняем в session_state для передачи в API
+            st.session_state['image_2'] = uploaded_file_2
         except Exception as e:
             st.error(f"Ошибка загрузки изображения 2: {e}")
 
@@ -114,7 +92,7 @@ st.subheader("✍️ Опишите желаемый результат")
 
 prompt = st.text_area(
     "Промпт для генерации:",
-    placeholder="Например: Создай новое изображение на основе этих референсов, объедини их стиль, добавь кинематографическое освещение, фотореалистичность, высокая детализация",
+    placeholder="Например: Make the sheets in the style of the logo. Make the scene natural.",
     height=120,
     help="Опишите максимально детально, что должно получиться"
 )
@@ -122,11 +100,11 @@ prompt = st.text_area(
 # Примеры промптов
 with st.expander("📝 Примеры промптов"):
     examples = [
-        "Создай композицию объединяющую элементы этих изображений в едином стиле киберпанк с неоновым освещением",
-        "Возьми стиль первого изображения и примени его ко второму, сохраняя композицию второго",
-        "Создай фотореалистичный коллаж из этих изображений с драматическим освещением и глубиной резкости",
-        "Объедини эти изображения в единую сцену в стиле винтажной фотографии 1970-х",
-        "Создай сюрреалистическую композицию смешивая элементы обоих изображений, студийное освещение"
+        "Make the sheets in the style of the logo. Make the scene natural.",
+        "Combine these images in cyberpunk style with neon lighting",
+        "Apply the style of the first image to the second one",
+        "Create a photorealistic composition with dramatic lighting",
+        "Merge these images in vintage 1970s photography style"
     ]
     for idx, example in enumerate(examples):
         if st.button(example, key=f"example_{idx}"):
@@ -140,104 +118,88 @@ if 'prompt_text' in st.session_state and st.session_state['prompt_text']:
 # Кнопка генерации
 st.divider()
 generate_button = st.button(
-    "🚀 Сгенерировать новое изображение",
+    "🚀 Сгенерировать изображение",
     type="primary",
     use_container_width=True,
     disabled=(image_1 is None)
 )
 
-# Функция для конвертации изображения в base64
-def image_to_base64(image):
-    buffered = io.BytesIO()
-    image.save(buffered, format="PNG")
-    img_bytes = buffered.getvalue()
-    return base64.b64encode(img_bytes).decode()
-
 # Обработка генерации
 if generate_button:
-    if not prompt or len(prompt.strip()) < 10:
-        st.warning("⚠️ Пожалуйста, введите описание (минимум 10 символов)")
+    if not prompt or len(prompt.strip()) < 5:
+        st.warning("⚠️ Пожалуйста, введите описание (минимум 5 символов)")
     elif image_1 is None:
         st.warning("⚠️ Загрузите хотя бы одно изображение")
     else:
-        with st.spinner("🎨 Генерирую изображение на основе ваших референсов... Это может занять 30-60 секунд..."):
+        with st.spinner("🎨 Генерирую изображение... Это может занять 20-40 секунд..."):
             try:
-                # Создаём расширенный промпт с описанием референсов
-                enhanced_prompt = f"{prompt}\n\nReference image style characteristics to incorporate:"
+                # Подготовка входных данных для Replicate
+                input_data = {
+                    "prompt": prompt,
+                }
                 
-                # Анализируем первое изображение через Gemini
-                analyzer_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                # Добавляем изображения как file objects
+                if 'image_1' in st.session_state:
+                    # Replicate принимает file-like объекты
+                    st.session_state['image_1'].seek(0)
+                    input_data["image_input"] = st.session_state['image_1']
                 
-                analysis_prompt = "Describe the visual style, colors, composition, lighting, and mood of this image in detail for image generation purposes. Be specific and technical."
+                # Если есть второе изображение, добавляем его
+                # (проверьте схему модели, возможно нужен другой параметр)
+                if 'image_2' in st.session_state and image_2 is not None:
+                    st.session_state['image_2'].seek(0)
+                    # Некоторые модели принимают массив изображений
+                    # Уточните в документации модели
                 
-                analysis_1 = analyzer_model.generate_content([analysis_prompt, image_1])
-                enhanced_prompt += f"\n- Image 1 style: {analysis_1.text}"
+                # Запуск модели на Replicate
+                output = replicate_client.run(
+                    "google/nano-banana",
+                    input=input_data
+                )
                 
-                # Если есть второе изображение - анализируем его тоже
-                if image_2 is not None:
-                    analysis_2 = analyzer_model.generate_content([analysis_prompt, image_2])
-                    enhanced_prompt += f"\n- Image 2 style: {analysis_2.text}"
-                
-                # Добавляем негативный промпт если есть
-                if negative_prompt:
-                    enhanced_prompt += f"\n\nAvoid: {negative_prompt}"
-                
-                st.info(f"📝 Расширенный промпт создан на основе анализа ваших изображений")
-                
-                # Теперь генерируем через Imagen
-                try:
-                    imagen_model = genai.GenerativeModel('imagen-3.0-generate-001')
+                # Обработка результата
+                # output может быть URL или список URL
+                if output:
+                    generated_images = []
                     
-                    response = imagen_model.generate_images(
-                        prompt=enhanced_prompt,
-                        number_of_images=num_outputs,
-                        aspect_ratio=aspect_ratio,
-                        safety_filter_level=safety_level,
-                        person_generation="allow_adult"
-                    )
+                    # Если output это строка (один URL)
+                    if isinstance(output, str):
+                        output = [output]
                     
-                    if response.images:
-                        st.session_state['generated_images'] = response.images
+                    # Загружаем изображения по URL
+                    for img_url in output:
+                        try:
+                            response = requests.get(img_url)
+                            img = Image.open(io.BytesIO(response.content))
+                            generated_images.append(img)
+                        except Exception as e:
+                            st.warning(f"Не удалось загрузить изображение: {e}")
+                    
+                    if generated_images:
+                        st.session_state['generated_images'] = generated_images
                         
                         # Счетчик
                         if 'generated_count' not in st.session_state:
                             st.session_state['generated_count'] = 0
-                        st.session_state['generated_count'] += len(response.images)
+                        st.session_state['generated_count'] += len(generated_images)
                         
-                        st.success(f"✅ Успешно сгенерировано {len(response.images)} изображение(й)!")
+                        st.success(f"✅ Успешно сгенерировано {len(generated_images)} изображение(й)!")
                     else:
-                        st.error("❌ Не удалось сгенерировать изображения")
-                        
-                except Exception as imagen_error:
-                    error_msg = str(imagen_error)
+                        st.error("❌ Не удалось получить изображения из ответа")
+                else:
+                    st.error("❌ Модель не вернула результат")
                     
-                    if "imagen" in error_msg.lower() or "not found" in error_msg.lower():
-                        st.error("❌ Модель Imagen 3.0 недоступна")
-                        st.warning("""
-                        **Imagen 3 недоступен в вашем регионе или требует:**
-                        1. Включения Vertex AI в Google Cloud
-                        2. Настройки биллинга
-                        3. Активации API Imagen
-                        
-                        **Альтернативы:**
-                        - Используйте веб-интерфейс Google AI Studio для генерации
-                        - Попробуйте Vertex AI с правильной настройкой проекта
-                        - Используйте другие сервисы: DALL-E 3, Midjourney, Stable Diffusion
-                        """)
-                        
-                        # Показываем доступные модели
-                        with st.expander("🔍 Доступные модели в вашем API"):
-                            try:
-                                for m in genai.list_models():
-                                    st.code(f"{m.name} - {m.supported_generation_methods}")
-                            except:
-                                st.write("Не удалось получить список моделей")
-                    else:
-                        st.error(f"❌ Ошибка Imagen: {error_msg}")
-                
             except Exception as e:
                 error_message = str(e)
-                st.error(f"❌ Ошибка: {error_message}")
+                st.error(f"❌ Ошибка генерации: {error_message}")
+                
+                st.info("""
+                **Возможные причины ошибки:**
+                - Проверьте правильность REPLICATE_API_TOKEN
+                - Убедитесь что модель google/nano-banana доступна
+                - Проверьте формат входных данных (schema модели)
+                - Возможно исчерпан лимит API
+                """)
 
 # Отображение результатов
 if 'generated_images' in st.session_state and st.session_state['generated_images']:
@@ -248,53 +210,47 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
     num_cols = min(len(st.session_state['generated_images']), 3)
     cols = st.columns(num_cols)
     
-    for idx, image_result in enumerate(st.session_state['generated_images']):
+    for idx, img in enumerate(st.session_state['generated_images']):
         with cols[idx % num_cols]:
-            try:
-                # Imagen возвращает объект с _pil_image
-                img = image_result._pil_image
-                st.image(img, caption=f"Результат {idx + 1}", use_column_width=True)
-                
-                # Кнопка скачивания
-                buf = io.BytesIO()
-                img.save(buf, format='PNG')
-                byte_data = buf.getvalue()
-                
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"imagen_result_{timestamp}_{idx + 1}.png"
-                
-                st.download_button(
-                    label="⬇️ Скачать",
-                    data=byte_data,
-                    file_name=filename,
-                    mime="image/png",
-                    key=f"download_result_{idx}",
-                    use_container_width=True
-                )
-            except Exception as e:
-                st.error(f"Ошибка отображения результата {idx + 1}: {e}")
+            st.image(img, caption=f"Результат {idx + 1}", use_column_width=True)
+            
+            # Кнопка скачивания
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            byte_data = buf.getvalue()
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"nano_banana_{timestamp}_{idx + 1}.png"
+            
+            st.download_button(
+                label="⬇️ Скачать",
+                data=byte_data,
+                file_name=filename,
+                mime="image/png",
+                key=f"download_result_{idx}",
+                use_container_width=True
+            )
 
 # Информационный блок
 with st.expander("ℹ️ Как это работает"):
     st.markdown("""
     ### Процесс генерации:
     
-    1. **Анализ референсов**: Gemini 2.5 Flash анализирует ваши загруженные изображения
-    2. **Создание промпта**: Система создаёт детальный промпт на основе анализа
-    3. **Генерация**: Imagen 3 создаёт новое изображение учитывая стиль референсов
-    4. **Результат**: Вы получаете новое изображение, вдохновлённое вашими референсами
+    1. **Загрузка референсов**: Вы загружаете 1-2 изображения
+    2. **Описание**: Указываете промпт с описанием желаемого результата
+    3. **Генерация**: Модель Nano Banana обрабатывает запрос через Replicate API
+    4. **Результат**: Получаете новое изображение на основе ваших референсов
     
-    ### Советы для лучших результатов:
-    - Используйте чёткие, качественные референсные изображения
-    - Детально описывайте желаемый результат
-    - Экспериментируйте с негативными промптами
-    - Генерируйте несколько вариантов для выбора лучшего
+    ### Модель: google/nano-banana
+    - Быстрая генерация изображений
+    - Поддержка image-to-image трансформаций
+    - Работает через Replicate API
     """)
 
 # Футер
 st.divider()
 st.markdown("""
 <div style='text-align: center; color: gray; padding: 20px;'>
-    Powered by Google Imagen 3 + Gemini 2.5 Flash | Streamlit
+    Powered by Google Nano Banana via Replicate | Streamlit
 </div>
 """, unsafe_allow_html=True)
