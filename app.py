@@ -31,7 +31,7 @@ def encode_image_to_base64(image):
     return base64.b64encode(buffered.getvalue()).decode()
 
 
-def call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt):
+def call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt, model="anthropic/claude-3.5-sonnet:beta"):
     """
     Вызов OpenRouter API с vision моделью для анализа изображений
     """
@@ -62,7 +62,7 @@ Please analyze BOTH images and provide:
 Make sure to reference both images in your analysis."""
 
     payload = {
-        "model": "anthropic/claude-3.5-sonnet",  # Vision модель
+        "model": model,  # Vision модель
         "messages": [
             {
                 "role": "user",
@@ -101,6 +101,11 @@ Make sure to reference both images in your analysis."""
         response = requests.post(url, headers=headers, json=payload, timeout=60)
         response.raise_for_status()
         result = response.json()
+
+        # Выводим информацию о модели
+        model_used = result.get('model', 'unknown')
+        st.info(f"🤖 Использована модель: {model_used}")
+
         return result['choices'][0]['message']['content']
     except requests.exceptions.RequestException as e:
         st.error(f"Ошибка при вызове OpenRouter API: {str(e)}")
@@ -166,7 +171,21 @@ with st.sidebar:
         key="cat_face"
     )
 
-    st.subheader("3️⃣ Промпт для обработки")
+    st.subheader("3️⃣ Выбор AI модели")
+    model_choice = st.selectbox(
+        "Выберите модель для анализа",
+        options=[
+            "anthropic/claude-3.5-sonnet:beta",
+            "anthropic/claude-3-5-sonnet-20241022",
+            "google/gemini-pro-1.5",
+            "openai/gpt-4-vision-preview",
+            "google/gemini-flash-1.5"
+        ],
+        index=0,
+        help="Разные модели могут давать разные результаты. Claude обычно лучше для детального анализа."
+    )
+
+    st.subheader("4️⃣ Промпт для обработки")
     custom_prompt = st.text_area(
         "Опишите как должна быть размещена мордочка кота",
         value="Аккуратно разместить мордочку кота из второго изображения на первом изображении, сохраняя естественный вид и правильные пропорции.",
@@ -225,8 +244,8 @@ if process_button:
             cat_face_b64 = encode_image_to_base64(cat_face_image)
 
             # Вызов OpenRouter Vision API для анализа
-            st.info("📊 Анализ изображений с помощью AI...")
-            analysis_result = call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt)
+            st.info(f"📊 Анализ изображений с помощью AI (модель: {model_choice})...")
+            analysis_result = call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt, model=model_choice)
 
             if analysis_result:
                 st.success("✅ Анализ завершен!")
