@@ -61,25 +61,37 @@ st.subheader("📤 Загрузка изображений")
 
 col1, col2 = st.columns(2)
 
+# Инициализация переменных для изображений
+image_1 = None
+image_2 = None
+
 with col1:
     uploaded_file_1 = st.file_uploader(
         "Изображение 1",
         type=['png', 'jpg', 'jpeg', 'webp'],
-        help="Загрузите первое изображение"
+        help="Загрузите первое изображение",
+        key="uploader_1"
     )
-    if uploaded_file_1:
-        image_1 = Image.open(uploaded_file_1)
-        st.image(image_1, caption="Изображение 1", use_container_width=True)
+    if uploaded_file_1 is not None:
+        try:
+            image_1 = Image.open(uploaded_file_1)
+            st.image(image_1, caption="Изображение 1", use_container_width=True)
+        except Exception as e:
+            st.error(f"Ошибка загрузки изображения 1: {e}")
 
 with col2:
     uploaded_file_2 = st.file_uploader(
         "Изображение 2 (опционально)",
         type=['png', 'jpg', 'jpeg', 'webp'],
-        help="Загрузите второе изображение (необязательно)"
+        help="Загрузите второе изображение (необязательно)",
+        key="uploader_2"
     )
-    if uploaded_file_2:
-        image_2 = Image.open(uploaded_file_2)
-        st.image(image_2, caption="Изображение 2", use_container_width=True)
+    if uploaded_file_2 is not None:
+        try:
+            image_2 = Image.open(uploaded_file_2)
+            st.image(image_2, caption="Изображение 2", use_container_width=True)
+        except Exception as e:
+            st.error(f"Ошибка загрузки изображения 2: {e}")
 
 # Промпт
 st.subheader("✍️ Опишите желаемый результат")
@@ -100,15 +112,13 @@ with st.expander("📝 Примеры промптов для работы с и
         "Объедини в единую сцену с драматическим освещением",
         "Сделай микс этих изображений в стиле акварельной живописи"
     ]
-    for example in examples:
-        if st.button(example, key=example):
-            st.session_state['prompt_example'] = example
-            st.rerun()
+    for idx, example in enumerate(examples):
+        if st.button(example, key=f"example_{idx}"):
+            st.session_state['prompt_text'] = example
 
 # Применяем пример промпта если выбран
-if 'prompt_example' in st.session_state:
-    prompt = st.session_state['prompt_example']
-    del st.session_state['prompt_example']
+if 'prompt_text' in st.session_state and st.session_state['prompt_text']:
+    prompt = st.session_state['prompt_text']
 
 # Кнопка генерации
 st.divider()
@@ -116,14 +126,14 @@ generate_button = st.button(
     "🚀 Сгенерировать результат",
     type="primary",
     use_container_width=True,
-    disabled=not uploaded_file_1
+    disabled=(image_1 is None)
 )
 
 # Обработка генерации
 if generate_button:
     if not prompt or len(prompt.strip()) < 10:
         st.warning("⚠️ Пожалуйста, введите описание (минимум 10 символов)")
-    elif not uploaded_file_1:
+    elif image_1 is None:
         st.warning("⚠️ Загрузите хотя бы одно изображение")
     else:
         with st.spinner("🎨 Обрабатываю изображения... Это может занять 20-40 секунд..."):
@@ -141,7 +151,7 @@ if generate_button:
                 content_parts.append(image_1)
                 
                 # Добавляем второе изображение если есть
-                if uploaded_file_2:
+                if image_2 is not None:
                     content_parts.append(image_2)
                 
                 # Генерация с изображениями
@@ -153,12 +163,12 @@ if generate_button:
                 )
                 
                 # Проверяем, вернулась ли картинка
-                if hasattr(response, 'parts'):
+                if hasattr(response, 'parts') and response.parts:
                     # Ищем изображения в ответе
                     generated_images = []
                     
                     for part in response.parts:
-                        if hasattr(part, 'inline_data'):
+                        if hasattr(part, 'inline_data') and part.inline_data:
                             # Получаем данные изображения
                             image_data = part.inline_data.data
                             mime_type = part.inline_data.mime_type
@@ -179,8 +189,10 @@ if generate_button:
                     else:
                         # Если изображения не вернулись, показываем текстовый ответ
                         st.warning("⚠️ Модель вернула текстовый ответ вместо изображения")
-                        st.info("Ответ модели:")
-                        st.write(response.text)
+                        
+                        if hasattr(response, 'text'):
+                            st.info("Ответ модели:")
+                            st.write(response.text)
                         
                         st.error("""
                         **Возможные причины:**
@@ -190,7 +202,8 @@ if generate_button:
                         """)
                 else:
                     st.warning("⚠️ Модель не вернула изображение")
-                    st.info(f"Ответ: {response.text if hasattr(response, 'text') else 'Нет данных'}")
+                    response_text = response.text if hasattr(response, 'text') else 'Нет данных'
+                    st.info(f"Ответ: {response_text}")
                 
             except Exception as e:
                 error_message = str(e)
@@ -236,7 +249,7 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
                 data=byte_data,
                 file_name=filename,
                 mime="image/png",
-                key=f"download_{idx}",
+                key=f"download_result_{idx}",
                 use_container_width=True
             )
 
