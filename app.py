@@ -44,36 +44,32 @@ def call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt):
         "X-Title": "Cat Face Swap App"
     }
 
-    # Формируем промпт
-    system_prompt = """You are an AI assistant that helps with image editing tasks.
-    Analyze the images provided and give detailed instructions on how to swap the cat face
-    from the second image onto the first image."""
+    # Формируем промпт с четкими указаниями для каждого изображения
+    user_message = f"""I need your help with a face swap task. I'm providing you with TWO images:
 
-    user_message = f"""I have two images:
-    1. Base image where I want to place a cat face
-    2. A photo with a cat face that should be placed on the base image
+IMAGE 1 (Base/Target image): This is the BASE image where I want to place a cat face.
 
-    Task: {custom_prompt}
+IMAGE 2 (Source image): This is the photo with the CAT FACE that should be extracted and placed on the base image.
 
-    Please provide detailed analysis of both images including:
-    - Where is the cat face located in the source image
-    - Where should the cat face be placed in the base image
-    - What adjustments need to be made (size, angle, lighting)
-    """
+Task: {custom_prompt}
+
+Please analyze BOTH images and provide:
+1. Description of the first (base) image - where should the cat face be placed
+2. Description of the second (source) image - where is the cat face located
+3. Step-by-step instructions for swapping the cat face from image 2 onto image 1
+4. What adjustments need to be made (size, angle, lighting, positioning)
+
+Make sure to reference both images in your analysis."""
 
     payload = {
         "model": "anthropic/claude-3.5-sonnet",  # Vision модель
         "messages": [
             {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        "text": user_message
+                        "text": "Here is IMAGE 1 (BASE IMAGE - where we want to place the cat face):"
                     },
                     {
                         "type": "image_url",
@@ -82,15 +78,23 @@ def call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt):
                         }
                     },
                     {
+                        "type": "text",
+                        "text": "Here is IMAGE 2 (SOURCE IMAGE - the cat face to extract and use):"
+                    },
+                    {
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:image/png;base64,{cat_face_b64}"
                         }
+                    },
+                    {
+                        "type": "text",
+                        "text": user_message
                     }
                 ]
             }
         ],
-        "max_tokens": 1000
+        "max_tokens": 2000
     }
 
     try:
