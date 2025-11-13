@@ -4,6 +4,9 @@ import base64
 from io import BytesIO
 from PIL import Image
 import json
+import numpy as np
+from rembg import remove
+import cv2
 
 # Настройка страницы
 st.set_page_config(
@@ -14,14 +17,14 @@ st.set_page_config(
 
 # Заголовок приложения
 st.title("🐱 Cat Face Swap - Замена мордочек котов")
-st.markdown("Загрузите базовое изображение и фото с мордочкой кота для замены")
+st.markdown("Загрузите базовое изображение и фото с мордочкой кота для автоматической замены")
 
-# Получение токенов из secrets
-OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", "")
+# Получение токена из secrets
 GOOGLE_AI_STUDIO_KEY = st.secrets.get("GOOGLE_AI_STUDIO_KEY", "")
 
-if not OPENROUTER_API_KEY and not GOOGLE_AI_STUDIO_KEY:
-    st.error("⚠️ API ключ не найден! Добавьте OPENROUTER_API_KEY или GOOGLE_AI_STUDIO_KEY в Streamlit secrets.")
+if not GOOGLE_AI_STUDIO_KEY:
+    st.error("⚠️ Google AI Studio API ключ не найден! Добавьте GOOGLE_AI_STUDIO_KEY в Streamlit secrets.")
+    st.info("Получите ключ на: https://aistudio.google.com/app/apikey")
     st.stop()
 
 
@@ -32,92 +35,9 @@ def encode_image_to_base64(image):
     return base64.b64encode(buffered.getvalue()).decode()
 
 
-def call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt, model="anthropic/claude-3.5-sonnet:beta"):
+def call_gemini_for_analysis(base_image_b64, cat_face_b64, custom_prompt, model="gemini-2.0-flash-exp"):
     """
-    Вызов OpenRouter API с vision моделью для анализа изображений
-    """
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://streamlit.io",
-        "X-Title": "Cat Face Swap App"
-    }
-
-    # Формируем промпт с четкими указаниями для каждого изображения
-    user_message = f"""I need your help with a face swap task. I'm providing you with TWO images:
-
-IMAGE 1 (Base/Target image): This is the BASE image where I want to place a cat face.
-
-IMAGE 2 (Source image): This is the photo with the CAT FACE that should be extracted and placed on the base image.
-
-Task: {custom_prompt}
-
-Please analyze BOTH images and provide:
-1. Description of the first (base) image - where should the cat face be placed
-2. Description of the second (source) image - where is the cat face located
-3. Step-by-step instructions for swapping the cat face from image 2 onto image 1
-4. What adjustments need to be made (size, angle, lighting, positioning)
-
-Make sure to reference both images in your analysis."""
-
-    payload = {
-        "model": model,  # Vision модель
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Here is IMAGE 1 (BASE IMAGE - where we want to place the cat face):"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{base_image_b64}"
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": "Here is IMAGE 2 (SOURCE IMAGE - the cat face to extract and use):"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{cat_face_b64}"
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": user_message
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 2000
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        response.raise_for_status()
-        result = response.json()
-
-        # Выводим информацию о модели
-        model_used = result.get('model', 'unknown')
-        st.info(f"🤖 Использована модель: {model_used}")
-
-        return result['choices'][0]['message']['content']
-    except requests.exceptions.RequestException as e:
-        st.error(f"Ошибка при вызове OpenRouter API: {str(e)}")
-        if hasattr(e.response, 'text'):
-            st.error(f"Детали ошибки: {e.response.text}")
-        return None
-
-
-def call_google_ai_studio(base_image_b64, cat_face_b64, custom_prompt, model="gemini-2.0-flash-exp"):
-    """
-    Вызов Google AI Studio API для анализа изображений
+    Вызов Gemini для анализа изображений и получения инструкций
     """
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GOOGLE_AI_STUDIO_KEY}"
 
@@ -125,29 +45,37 @@ def call_google_ai_studio(base_image_b64, cat_face_b64, custom_prompt, model="ge
         "Content-Type": "application/json"
     }
 
-    # Формируем промпт для Google AI Studio
-    user_message = f"""I need your help with a face swap task. I'm providing you with TWO images:
+    # Промпт с запросом JSON структуры
+    user_message = f"""Analyze these two images for a cat face swap task:
 
-IMAGE 1 (Base/Target image): This is the BASE image where I want to place a cat face.
-
-IMAGE 2 (Source image): This is the photo with the CAT FACE that should be extracted and placed on the base image.
+IMAGE 1: Base image where we want to place the cat face
+IMAGE 2: Source image with the cat face to extract
 
 Task: {custom_prompt}
 
-Please analyze BOTH images and provide:
-1. Description of the first (base) image - where should the cat face be placed
-2. Description of the second (source) image - where is the cat face located
-3. Step-by-step instructions for swapping the cat face from image 2 onto image 1
-4. What adjustments need to be made (size, angle, lighting, positioning)
+Please provide a detailed analysis in the following JSON format:
+{{
+    "base_image_description": "description of the base image",
+    "cat_face_description": "description of the cat face in source image",
+    "placement_instructions": {{
+        "position": "where to place (e.g., center, top-left, etc.)",
+        "suggested_x_percent": 50,
+        "suggested_y_percent": 50,
+        "suggested_scale_percent": 100,
+        "rotation_degrees": 0
+    }},
+    "adjustments": "color, lighting, and other adjustments needed",
+    "step_by_step": ["step 1", "step 2", "..."]
+}}
 
-Make sure to reference both images in your analysis."""
+Provide both the JSON and a human-readable explanation."""
 
     payload = {
         "contents": [
             {
                 "parts": [
                     {
-                        "text": "Here is IMAGE 1 (BASE IMAGE - where we want to place the cat face):"
+                        "text": "Here is IMAGE 1 (BASE IMAGE):"
                     },
                     {
                         "inline_data": {
@@ -156,7 +84,7 @@ Make sure to reference both images in your analysis."""
                         }
                     },
                     {
-                        "text": "Here is IMAGE 2 (SOURCE IMAGE - the cat face to extract and use):"
+                        "text": "Here is IMAGE 2 (SOURCE - cat face to extract):"
                     },
                     {
                         "inline_data": {
@@ -181,57 +109,104 @@ Make sure to reference both images in your analysis."""
         response.raise_for_status()
         result = response.json()
 
-        # Выводим информацию о модели
-        st.info(f"🤖 Использована модель Google AI Studio: {model}")
-
-        # Извлекаем текст из ответа Google AI
         if 'candidates' in result and len(result['candidates']) > 0:
             content = result['candidates'][0]['content']
             if 'parts' in content and len(content['parts']) > 0:
                 return content['parts'][0]['text']
         return None
     except requests.exceptions.RequestException as e:
-        st.error(f"Ошибка при вызове Google AI Studio API: {str(e)}")
+        st.error(f"Ошибка при вызове Gemini API: {str(e)}")
         if hasattr(e, 'response') and hasattr(e.response, 'text'):
-            st.error(f"Детали ошибки: {e.response.text}")
+            st.error(f"Детали: {e.response.text}")
         return None
 
 
-def call_openrouter_image_generation(prompt, base_image_b64=None):
-    """
-    Вызов OpenRouter API для генерации изображения
-    """
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://streamlit.io",
-        "X-Title": "Cat Face Swap App"
-    }
-
-    # Используем модель с поддержкой генерации изображений
-    payload = {
-        "model": "openai/gpt-4-vision-preview",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "max_tokens": 4096
-    }
-
+def remove_background(image):
+    """Удаляет фон с изображения используя rembg"""
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=120)
-        response.raise_for_status()
-        result = response.json()
-        return result['choices'][0]['message']['content']
-    except requests.exceptions.RequestException as e:
-        st.error(f"Ошибка при генерации изображения: {str(e)}")
-        if hasattr(e.response, 'text'):
-            st.error(f"Детали ошибки: {e.response.text}")
-        return None
+        # Конвертируем PIL Image в bytes
+        img_byte_arr = BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+
+        # Удаляем фон
+        output = remove(img_byte_arr)
+
+        # Конвертируем обратно в PIL Image
+        result_image = Image.open(BytesIO(output))
+        return result_image
+    except Exception as e:
+        st.warning(f"Не удалось удалить фон: {str(e)}")
+        return image
+
+
+def overlay_cat_face(base_image, cat_face_image, x_percent=50, y_percent=50, scale_percent=100, rotation=0, remove_bg=True):
+    """
+    Накладывает мордочку кота на базовое изображение
+
+    Args:
+        base_image: PIL Image - базовое изображение
+        cat_face_image: PIL Image - изображение с мордочкой кота
+        x_percent: позиция по X в процентах (0-100)
+        y_percent: позиция по Y в процентах (0-100)
+        scale_percent: масштаб мордочки в процентах (10-200)
+        rotation: угол поворота в градусах
+        remove_bg: удалить ли фон у мордочки
+
+    Returns:
+        PIL Image - результирующее изображение
+    """
+    # Создаем копию базового изображения
+    result = base_image.copy()
+
+    # Удаляем фон с мордочки кота если нужно
+    if remove_bg:
+        cat_face = remove_background(cat_face_image)
+    else:
+        cat_face = cat_face_image.copy()
+
+    # Изменяем размер мордочки
+    base_width = base_image.width
+    base_height = base_image.height
+
+    # Вычисляем новый размер мордочки
+    scale_factor = scale_percent / 100.0
+    new_width = int(cat_face.width * scale_factor)
+    new_height = int(cat_face.height * scale_factor)
+
+    # Ограничиваем размер
+    max_width = int(base_width * 0.8)
+    max_height = int(base_height * 0.8)
+    if new_width > max_width:
+        ratio = max_width / new_width
+        new_width = max_width
+        new_height = int(new_height * ratio)
+    if new_height > max_height:
+        ratio = max_height / new_height
+        new_height = max_height
+        new_width = int(new_width * ratio)
+
+    cat_face = cat_face.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Поворачиваем если нужно
+    if rotation != 0:
+        cat_face = cat_face.rotate(rotation, expand=True, fillcolor=(0, 0, 0, 0))
+
+    # Вычисляем позицию для вставки
+    x_pos = int((base_width * x_percent / 100) - (cat_face.width / 2))
+    y_pos = int((base_height * y_percent / 100) - (cat_face.height / 2))
+
+    # Ограничиваем позицию чтобы мордочка не выходила за границы
+    x_pos = max(0, min(x_pos, base_width - cat_face.width))
+    y_pos = max(0, min(y_pos, base_height - cat_face.height))
+
+    # Накладываем мордочку на базовое изображение
+    if cat_face.mode == 'RGBA':
+        result.paste(cat_face, (x_pos, y_pos), cat_face)
+    else:
+        result.paste(cat_face, (x_pos, y_pos))
+
+    return result
 
 
 # Боковая панель с настройками
@@ -239,7 +214,7 @@ with st.sidebar:
     st.header("⚙️ Настройки")
 
     st.subheader("1️⃣ Базовое изображение")
-    st.markdown("Загрузите изображение, на котором будет производиться замена")
+    st.markdown("Загрузите изображение, на котором будет размещена мордочка")
     base_image_file = st.file_uploader(
         "Выберите базовое изображение",
         type=['png', 'jpg', 'jpeg'],
@@ -247,61 +222,48 @@ with st.sidebar:
     )
 
     st.subheader("2️⃣ Фото с мордочкой кота")
-    st.markdown("Загрузите фото кота, мордочку которого нужно использовать")
+    st.markdown("Загрузите фото с мордочкой кота")
     cat_face_file = st.file_uploader(
         "Выберите фото кота",
         type=['png', 'jpg', 'jpeg'],
         key="cat_face"
     )
 
-    st.subheader("3️⃣ Выбор AI провайдера")
-
-    # Определяем доступные провайдеры
-    available_providers = []
-    if OPENROUTER_API_KEY:
-        available_providers.append("OpenRouter")
-    if GOOGLE_AI_STUDIO_KEY:
-        available_providers.append("Google AI Studio")
-
-    provider_choice = st.radio(
-        "Выберите AI провайдера",
-        options=available_providers,
-        index=len(available_providers) - 1 if len(available_providers) > 0 else 0,
-        help="OpenRouter - доступ к различным моделям. Google AI Studio - прямой доступ к Gemini моделям."
+    st.subheader("3️⃣ Модель Gemini")
+    model_choice = st.selectbox(
+        "Выберите модель",
+        options=[
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-flash-latest"
+        ],
+        index=0,
+        help="Gemini 2.0 Flash Experimental - лучший вариант для анализа изображений"
     )
 
-    st.subheader("4️⃣ Выбор модели")
+    st.subheader("4️⃣ Настройки наложения")
 
-    if provider_choice == "OpenRouter":
-        model_choice = st.selectbox(
-            "Выберите модель для анализа",
-            options=[
-                "anthropic/claude-3.5-sonnet:beta",
-                "anthropic/claude-3-5-sonnet-20241022",
-                "google/gemini-pro-1.5",
-                "openai/gpt-4-vision-preview",
-                "google/gemini-flash-1.5"
-            ],
-            index=0,
-            help="Разные модели могут давать разные результаты. Claude обычно лучше для детального анализа."
-        )
-    else:  # Google AI Studio
-        model_choice = st.selectbox(
-            "Выберите Gemini модель",
-            options=[
-                "gemini-2.0-flash-exp",
-                "gemini-1.5-pro-latest",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-flash-8b"
-            ],
-            index=0,
-            help="Gemini 2.0 Flash - экспериментальная модель с улучшенной работой с изображениями (Nano Banana)."
-        )
+    use_ai_position = st.checkbox(
+        "Использовать AI для определения позиции",
+        value=True,
+        help="Gemini автоматически определит где разместить мордочку"
+    )
 
-    st.subheader("5️⃣ Промпт для обработки")
+    if not use_ai_position:
+        x_position = st.slider("Позиция по горизонтали (%)", 0, 100, 50)
+        y_position = st.slider("Позиция по вертикали (%)", 0, 100, 50)
+    else:
+        x_position = 50
+        y_position = 50
+
+    scale = st.slider("Размер мордочки (%)", 10, 200, 100)
+    rotation = st.slider("Поворот (градусы)", -180, 180, 0)
+    remove_bg = st.checkbox("Удалить фон у мордочки", value=True)
+
+    st.subheader("5️⃣ Промпт для AI")
     custom_prompt = st.text_area(
-        "Опишите как должна быть размещена мордочка кота",
-        value="Аккуратно разместить мордочку кота из второго изображения на первом изображении, сохраняя естественный вид и правильные пропорции.",
+        "Опишите как должна быть размещена мордочка",
+        value="Разместить мордочку кота естественным образом на базовом изображении, подобрав оптимальный размер и позицию.",
         height=100
     )
 
@@ -329,11 +291,22 @@ with col2:
 
 with col3:
     st.subheader("✨ Результат")
-    if 'result_placeholder' not in st.session_state:
-        st.session_state.result_placeholder = None
+    if 'result_image' not in st.session_state:
+        st.session_state.result_image = None
 
-    if st.session_state.result_placeholder:
-        st.info(st.session_state.result_placeholder)
+    if st.session_state.result_image:
+        st.image(st.session_state.result_image, use_column_width=True)
+
+        # Кнопка для скачивания
+        buf = BytesIO()
+        st.session_state.result_image.save(buf, format="PNG")
+        st.download_button(
+            label="💾 Скачать результат",
+            data=buf.getvalue(),
+            file_name="cat_face_swap_result.png",
+            mime="image/png",
+            use_container_width=True
+        )
     else:
         st.info("Результат появится здесь после обработки")
 
@@ -343,55 +316,78 @@ if process_button:
     if not base_image_file or not cat_face_file:
         st.error("⚠️ Пожалуйста, загрузите оба изображения!")
     else:
-        provider_name = f"{provider_choice} API"
-        with st.spinner(f"🔄 Обработка изображений через {provider_name}..."):
-            # Конвертируем изображения в base64
+        with st.spinner("🔄 Обработка изображений..."):
+            # Загружаем изображения
             base_image = Image.open(BytesIO(base_image_file.getvalue()))
             cat_face_image = Image.open(BytesIO(cat_face_file.getvalue()))
 
-            # Изменяем размер для оптимизации
-            max_size = (1024, 1024)
-            base_image.thumbnail(max_size, Image.Resampling.LANCZOS)
-            cat_face_image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            # Конвертируем в RGB если нужно
+            if base_image.mode != 'RGB':
+                base_image = base_image.convert('RGB')
+            if cat_face_image.mode not in ['RGB', 'RGBA']:
+                cat_face_image = cat_face_image.convert('RGBA')
 
-            base_image_b64 = encode_image_to_base64(base_image)
-            cat_face_b64 = encode_image_to_base64(cat_face_image)
+            final_x = x_position
+            final_y = y_position
+            final_scale = scale
 
-            # Вызов API для анализа
-            st.info(f"📊 Анализ изображений с помощью AI ({provider_choice} - {model_choice})...")
+            # Используем AI для анализа если включено
+            if use_ai_position:
+                with st.spinner("🤖 AI анализирует изображения..."):
+                    # Изменяем размер для быстрой обработки
+                    temp_base = base_image.copy()
+                    temp_cat = cat_face_image.copy()
+                    temp_base.thumbnail((512, 512), Image.Resampling.LANCZOS)
+                    temp_cat.thumbnail((512, 512), Image.Resampling.LANCZOS)
 
-            if provider_choice == "OpenRouter":
-                analysis_result = call_openrouter_vision(base_image_b64, cat_face_b64, custom_prompt, model=model_choice)
-            else:  # Google AI Studio
-                analysis_result = call_google_ai_studio(base_image_b64, cat_face_b64, custom_prompt, model=model_choice)
+                    base_b64 = encode_image_to_base64(temp_base)
+                    cat_b64 = encode_image_to_base64(temp_cat)
 
-            if analysis_result:
-                st.success("✅ Анализ завершен!")
+                    analysis = call_gemini_for_analysis(base_b64, cat_b64, custom_prompt, model=model_choice)
 
-                with st.expander("📋 Результат анализа от AI", expanded=True):
-                    st.markdown(analysis_result)
+                    if analysis:
+                        with st.expander("📋 Анализ от AI", expanded=False):
+                            st.markdown(analysis)
 
-                st.session_state.result_placeholder = analysis_result
+                        # Пытаемся извлечь координаты из анализа
+                        try:
+                            # Ищем JSON в ответе
+                            import re
+                            json_match = re.search(r'\{[\s\S]*\}', analysis)
+                            if json_match:
+                                data = json.loads(json_match.group())
+                                if 'placement_instructions' in data:
+                                    pi = data['placement_instructions']
+                                    final_x = pi.get('suggested_x_percent', x_position)
+                                    final_y = pi.get('suggested_y_percent', y_position)
+                                    final_scale = pi.get('suggested_scale_percent', scale)
+                                    rotation = pi.get('rotation_degrees', rotation)
+                                    st.success(f"✅ AI предлагает: позиция ({final_x}%, {final_y}%), размер {final_scale}%")
+                        except:
+                            st.info("Используем заданные вручную параметры")
 
-                st.info("""
-                📝 **Примечание**:
-                Автоматическая замена лиц требует специализированных моделей для image editing/inpainting.
-                OpenRouter предоставляет анализ изображений через vision модели.
+            # Создаем результирующее изображение
+            with st.spinner("🎨 Создаю результирующее изображение..."):
+                result_image = overlay_cat_face(
+                    base_image,
+                    cat_face_image,
+                    x_percent=final_x,
+                    y_percent=final_y,
+                    scale_percent=final_scale,
+                    rotation=rotation,
+                    remove_bg=remove_bg
+                )
 
-                Для полной автоматизации замены лиц можно:
-                1. Использовать специализированные API (Replicate, RunwayML)
-                2. Внедрить локальные модели (InsightFace, Face Swap)
-                3. Использовать Stable Diffusion с ControlNet для inpainting
-                """)
-            else:
-                st.error("❌ Не удалось обработать изображения")
+                st.session_state.result_image = result_image
+                st.success("✅ Готово! Результат в правой колонке")
+                st.rerun()
 
 
 # Футер
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center'>
-    <p>🐱 Cat Face Swap | Powered by OpenRouter API</p>
-    <p><small>Загрузите ваши изображения и получите AI-анализ для замены мордочек котов</small></p>
+    <p>🐱 Cat Face Swap | Powered by Gemini 2.0 Flash & Python Image Processing</p>
+    <p><small>Реальная замена мордочек котов с использованием AI и обработки изображений</small></p>
 </div>
 """, unsafe_allow_html=True)
