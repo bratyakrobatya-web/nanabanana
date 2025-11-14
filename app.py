@@ -254,20 +254,6 @@ with st.sidebar:
     except:
         pass  # Logo not found
 
-    st.divider()
-
-    if 'generated_count' in st.session_state:
-        st.metric("Images Created", st.session_state['generated_count'])
-
-    st.divider()
-
-    st.markdown("### ℹ️ About")
-    st.markdown("""
-    **CAT REFACER** uses AI to transform and combine your images into stunning 9:16 format creations.
-
-    Perfect for social media, stories, and vertical content!
-    """)
-
 # Main area - image upload
 st.subheader("📤 Upload Reference Images")
 
@@ -614,14 +600,6 @@ with wan_col1:
 with wan_col2:
     st.subheader("✍️ Motion Prompt")
 
-    wan_prompt = st.text_area(
-        "Describe the desired motion:",
-        placeholder="Example: Close-up shot of an elderly sailor wearing a yellow raincoat, seated on the deck of a catamaran, slowly puffing on a pipe...",
-        height=150,
-        key="wan_prompt",
-        help="Describe the motion, camera movement, and atmosphere you want in the video"
-    )
-
     # WAN prompt examples
     with st.expander("📝 Motion Prompt Examples"):
         wan_examples = [
@@ -633,11 +611,20 @@ with wan_col2:
         ]
         for idx, example in enumerate(wan_examples):
             if st.button(example, key=f"wan_example_{idx}"):
-                st.session_state['wan_prompt_text'] = example
+                st.session_state['wan_prompt_value'] = example
                 st.rerun()
 
-    if 'wan_prompt_text' in st.session_state and st.session_state.get('wan_prompt_text'):
-        wan_prompt = st.session_state['wan_prompt_text']
+    # Get default value from session state if available
+    default_wan_prompt = st.session_state.get('wan_prompt_value', '')
+
+    wan_prompt = st.text_area(
+        "Describe the desired motion:",
+        value=default_wan_prompt,
+        placeholder="Example: Close-up shot of an elderly sailor wearing a yellow raincoat, seated on the deck of a catamaran, slowly puffing on a pipe...",
+        height=150,
+        key="wan_prompt",
+        help="Describe the motion, camera movement, and atmosphere you want in the video"
+    )
 
 # Generate video button
 wan_generate_button = st.button(
@@ -671,8 +658,21 @@ if wan_generate_button:
                 )
 
                 if output:
-                    # Save video to session state
-                    video_data = output.read()
+                    # Handle different output types
+                    if isinstance(output, str):
+                        # Output is URL, download the video
+                        video_response = requests.get(output)
+                        video_data = video_response.content
+                    else:
+                        # Output is FileOutput object, read it
+                        try:
+                            video_data = output.read()
+                        except AttributeError:
+                            # Try to get URL from output
+                            video_url = str(output)
+                            video_response = requests.get(video_url)
+                            video_data = video_response.content
+
                     st.session_state['wan_video'] = video_data
 
                     # Update counter
