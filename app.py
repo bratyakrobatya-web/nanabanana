@@ -4,204 +4,228 @@ from PIL import Image
 import io
 from datetime import datetime
 import requests
-import base64
 
 # Page configuration
 st.set_page_config(
-    page_title="Nano Banana Image Generator",
-    page_icon="🍌",
+    page_title="CAT REFACER",
+    page_icon="🐱",
     layout="wide"
 )
 
-# Function to load font as base64
-def load_font_as_base64(font_path):
-    with open(font_path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
-# Load custom font
-font_base64 = load_font_as_base64("ArexaDemo-Regular.otf")
-
-# Dark metallic style with white text
-st.markdown(f"""
+# Light theme with Source Sans Pro font
+st.markdown("""
 <style>
-    /* Main app styling */
-    .stApp {{
-        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+    /* Import Source Sans Pro font */
+    @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap');
+
+    /* Main app styling - LIGHT THEME */
+    .stApp {
+        background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 50%, #f5f5f5 100%);
         background-attachment: fixed;
-    }}
+        font-family: 'Source Sans Pro', sans-serif !important;
+    }
 
-    /* Metallic background for containers */
-    .stApp > div {{
-        background: transparent;
-    }}
-
-    /* Default white text color */
-    h1, h2, h3, h4, h5, h6, p, div, span, label, .stMarkdown, .stText {{
-        color: #ffffff !important;
-    }}
+    /* All text elements use Source Sans Pro */
+    * {
+        font-family: 'Source Sans Pro', sans-serif !important;
+    }
 
     /* Headers styling */
-    h1 {{
+    h1 {
         font-size: 3.625rem !important;
-        font-weight: bold !important;
-        color: #ffffff !important;
-    }}
+        font-weight: 700 !important;
+        color: #1a1a1a !important;
+    }
 
-    h2 {{
+    h2 {
         font-size: 2.125rem !important;
-        color: #e0e0e0 !important;
-    }}
+        color: #2d2d2d !important;
+        font-weight: 600 !important;
+    }
 
-    h3 {{
-        color: #e0e0e0 !important;
+    h3 {
+        color: #404040 !important;
         font-size: 1.625rem !important;
-    }}
+        font-weight: 600 !important;
+    }
 
     /* Regular text */
-    p, div, span, label {{
+    p, div, span, label {
         font-size: calc(1rem + 2px) !important;
-        color: #ffffff !important;
-    }}
+        color: #1a1a1a !important;
+    }
 
     /* Sidebar styling */
-    section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%);
-        border-right: 2px solid #404040;
-    }}
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
+        border-right: 2px solid #e0e0e0;
+    }
 
     /* Button styling */
-    .stButton > button {{
-        background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
+    .stButton > button {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
         color: #ffffff !important;
-        border: 2px solid #606060;
+        border: 2px solid #357abd;
         border-radius: 8px;
-        font-weight: bold;
+        font-weight: 600;
         font-size: calc(1rem + 2px) !important;
         transition: all 0.3s ease;
-    }}
+    }
 
-    .stButton > button:hover {{
-        background: linear-gradient(135deg, #5a5a5a 0%, #3a3a3a 100%);
-        border-color: #808080;
-        box-shadow: 0 4px 8px rgba(255,255,255,0.1);
-    }}
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #5a9def 0%, #4a90e2 100%);
+        border-color: #4a90e2;
+        box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+    }
 
     /* Primary button */
-    .stButton > button[kind="primary"] {{
-        background: linear-gradient(135deg, #6a6a6a 0%, #4a4a4a 100%);
-        border: 2px solid #909090;
-    }}
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        border: 2px solid #357abd;
+    }
 
-    .stButton > button[kind="primary"]:hover {{
-        background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
-        box-shadow: 0 6px 12px rgba(255,255,255,0.2);
-    }}
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #5a9def 0%, #4a90e2 100%);
+        box-shadow: 0 6px 12px rgba(74, 144, 226, 0.4);
+    }
 
     /* Text input and textarea styling */
-    .stTextArea textarea, .stTextInput input {{
-        background-color: #2a2a2a !important;
-        color: #ffffff !important;
-        border: 2px solid #404040 !important;
+    .stTextArea textarea, .stTextInput input {
+        background-color: #ffffff !important;
+        color: #1a1a1a !important;
+        border: 2px solid #d0d0d0 !important;
         border-radius: 6px;
         font-size: calc(1rem + 2px) !important;
-    }}
+    }
 
-    /* White placeholder text */
-    .stTextArea textarea::placeholder {{
-        color: #ffffff !important;
+    .stTextArea textarea:focus, .stTextInput input:focus {
+        border-color: #4a90e2 !important;
+    }
+
+    /* Placeholder text */
+    .stTextArea textarea::placeholder {
+        color: #888888 !important;
         opacity: 0.7;
-    }}
+    }
 
-    /* File uploader - black background with red dashed border */
-    section[data-testid="stFileUploader"] > div {{
-        background-color: #000000 !important;
-        border: 3px dashed #ff0000 !important;
+    /* File uploader */
+    section[data-testid="stFileUploader"] > div {
+        background-color: #f9f9f9 !important;
+        border: 3px dashed #4a90e2 !important;
         border-radius: 8px;
         padding: 20px;
-    }}
+    }
 
-    section[data-testid="stFileUploader"] label {{
-        color: #ffffff !important;
+    section[data-testid="stFileUploader"] label {
+        color: #1a1a1a !important;
         font-size: calc(1rem + 2px) !important;
-    }}
+        font-weight: 600 !important;
+    }
 
-    section[data-testid="stFileUploader"] small {{
-        color: #cccccc !important;
+    section[data-testid="stFileUploader"] small {
+        color: #666666 !important;
         font-size: calc(0.875rem + 2px) !important;
-    }}
+    }
 
     /* Metrics styling */
-    div[data-testid="stMetricValue"] {{
-        color: #ffffff !important;
+    div[data-testid="stMetricValue"] {
+        color: #1a1a1a !important;
         font-size: calc(2rem + 2px) !important;
-    }}
+        font-weight: 700 !important;
+    }
 
-    div[data-testid="stMetricLabel"] {{
-        color: #e0e0e0 !important;
+    div[data-testid="stMetricLabel"] {
+        color: #404040 !important;
         font-size: calc(0.875rem + 2px) !important;
-    }}
+        font-weight: 600 !important;
+    }
 
     /* Alert blocks styling */
-    .stAlert {{
-        background-color: #2a2a2a !important;
-        border: 1px solid #404040 !important;
-        color: #e0e0e0 !important;
-    }}
+    .stAlert {
+        background-color: #f0f7ff !important;
+        border: 1px solid #4a90e2 !important;
+        color: #1a1a1a !important;
+    }
 
     /* Dividers */
-    hr {{
-        border-color: #404040 !important;
-    }}
+    hr {
+        border-color: #e0e0e0 !important;
+    }
 
-    /* Logo styling */
-    .logo-container {{
-        text-align: center;
-        margin-bottom: 20px;
-    }}
+    /* Logo in header */
+    .header-logo {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 999;
+        max-width: 120px;
+    }
 
-    .logo-container img {{
-        max-width: 200px;
-        border: 2px solid #404040;
-        border-radius: 8px;
-    }}
+    .header-logo img {
+        width: 100%;
+        height: auto;
+    }
+
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #f5f5f5;
+        border-radius: 4px;
+        font-weight: 600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Function to fix image orientation and convert to 9:16
-def fix_image_orientation_and_resize(image):
-    """Fixes image orientation based on EXIF and converts to 9:16 format"""
+# Function to fix image orientation
+def fix_image_orientation(image):
+    """Fixes image orientation based on EXIF data"""
     try:
-        # Fix orientation based on EXIF data
         from PIL import ImageOps
-        image = ImageOps.exif_transpose(image)
-
-        # Target aspect ratio 9:16 (vertical format)
-        target_ratio = 9 / 16
-        width, height = image.size
-        current_ratio = width / height
-
-        # If image is horizontal or square, crop/resize
-        if current_ratio > target_ratio:
-            # Image too wide, crop sides
-            new_width = int(height * target_ratio)
-            left = (width - new_width) // 2
-            image = image.crop((left, 0, left + new_width, height))
-        elif current_ratio < target_ratio:
-            # Image too tall, crop top and bottom
-            new_height = int(width / target_ratio)
-            top = (height - new_height) // 2
-            image = image.crop((0, top, width, top + new_height))
-
-        # Resize to standard 9:16 resolution
-        # Using 1080x1920 as base size for vertical format
-        target_width = 1080
-        target_height = 1920
-        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
-
-        return image
+        return ImageOps.exif_transpose(image)
     except Exception as e:
-        st.warning(f"Failed to process image: {e}")
         return image
+
+# Function to crop image to 9:16 with custom position
+def crop_to_9_16(image, crop_position='center'):
+    """Crops image to 9:16 format with adjustable position"""
+    target_ratio = 9 / 16
+    width, height = image.size
+    current_ratio = width / height
+
+    if current_ratio > target_ratio:
+        # Image too wide, crop sides
+        new_width = int(height * target_ratio)
+        if crop_position == 'left':
+            left = 0
+        elif crop_position == 'right':
+            left = width - new_width
+        else:  # center
+            left = (width - new_width) // 2
+        image = image.crop((left, 0, left + new_width, height))
+    elif current_ratio < target_ratio:
+        # Image too tall, crop top and bottom
+        new_height = int(width / target_ratio)
+        if crop_position == 'top':
+            top = 0
+        elif crop_position == 'bottom':
+            top = height - new_height
+        else:  # center
+            top = (height - new_height) // 2
+        image = image.crop((0, top, width, top + new_height))
+
+    return image
+
+# Function to resize to final dimensions
+def resize_to_final(image):
+    """Resizes image to 1080x1920"""
+    return image.resize((1080, 1920), Image.Resampling.LANCZOS)
+
+# Combined function for backward compatibility
+def fix_image_orientation_and_resize(image, crop_position='center'):
+    """Fixes orientation, crops to 9:16, and resizes"""
+    image = fix_image_orientation(image)
+    image = crop_to_9_16(image, crop_position)
+    image = resize_to_final(image)
+    return image
 
 # Initialize Replicate API
 try:
@@ -210,25 +234,36 @@ except Exception as e:
     st.error("⚠️ Error connecting to Replicate API. Check your token in secrets.toml")
     st.stop()
 
+# Header logo in top-left corner
+try:
+    st.markdown("""
+    <div class="header-logo">
+        <img src="data:image/png;base64,{}" alt="Logo">
+    </div>
+    """.format(__import__('base64').b64encode(open('logi.png', 'rb').read()).decode()), unsafe_allow_html=True)
+except:
+    pass  # Logo not found
+
 # Title
-st.title("🍌 Nano Banana - Image Generator")
-st.markdown("### 9:16 Image Generator")
-st.markdown("Upload up to 2 reference images and describe your desired result. All images will be automatically converted to vertical 9:16 format.")
+st.title("🐱 CAT REFACER")
+st.markdown("### AI-Powered 9:16 Image Generator")
+st.markdown("Upload up to 2 reference images and describe your desired result. All images will be automatically converted to vertical 9:16 format with adjustable crop preview.")
 
-# Sidebar with logo
+# Sidebar
 with st.sidebar:
-    # Logo (if logo.avif exists)
-    try:
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-        st.image("logo.avif", use_column_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    except:
-        pass  # Logo not found, continue without it
-
-    st.divider()
+    st.markdown("### 📊 Statistics")
 
     if 'generated_count' in st.session_state:
         st.metric("Images Created", st.session_state['generated_count'])
+
+    st.divider()
+
+    st.markdown("### ℹ️ About")
+    st.markdown("""
+    **CAT REFACER** uses AI to transform and combine your images into stunning 9:16 format creations.
+
+    Perfect for social media, stories, and vertical content!
+    """)
 
 # Main area - image upload
 st.subheader("📤 Upload Reference Images")
@@ -242,44 +277,108 @@ uploaded_file_1 = None
 uploaded_file_2 = None
 
 with col1:
+    st.markdown("#### Image 1 (Required)")
     uploaded_file_1 = st.file_uploader(
-        "Image 1 (required)",
+        "Choose first image",
         type=['png', 'jpg', 'jpeg', 'webp'],
         help="Upload first reference image - will be converted to 9:16 format",
-        key="uploader_1"
+        key="uploader_1",
+        label_visibility="collapsed"
     )
     if uploaded_file_1 is not None:
         try:
             image_1 = Image.open(uploaded_file_1)
-            # Apply orientation fix and resize
-            image_1 = fix_image_orientation_and_resize(image_1)
-            st.image(image_1, caption="Reference 1 (9:16)", width=300)
-            # Save processed image in session_state
+            image_1 = fix_image_orientation(image_1)
+
+            # Crop position selector
+            st.markdown("**Crop Position:**")
+            width, height = image_1.size
+            target_ratio = 9 / 16
+            current_ratio = width / height
+
+            if current_ratio > target_ratio:
+                crop_pos_1 = st.radio(
+                    "Horizontal crop alignment",
+                    options=['left', 'center', 'right'],
+                    index=1,
+                    key="crop_pos_1",
+                    horizontal=True
+                )
+            elif current_ratio < target_ratio:
+                crop_pos_1 = st.radio(
+                    "Vertical crop alignment",
+                    options=['top', 'center', 'bottom'],
+                    index=1,
+                    key="crop_pos_1",
+                    horizontal=True
+                )
+            else:
+                crop_pos_1 = 'center'
+
+            # Apply crop and show preview
+            cropped_1 = crop_to_9_16(image_1.copy(), crop_pos_1)
+            st.image(cropped_1, caption="Crop Preview (9:16)", use_column_width=True)
+
+            # Save processed image
+            final_image_1 = resize_to_final(cropped_1)
             buf = io.BytesIO()
-            image_1.save(buf, format='PNG')
+            final_image_1.save(buf, format='PNG')
             buf.seek(0)
             st.session_state['image_1'] = buf
+
         except Exception as e:
             st.error(f"Error loading image 1: {e}")
 
 with col2:
+    st.markdown("#### Image 2 (Optional)")
     uploaded_file_2 = st.file_uploader(
-        "Image 2 (optional)",
+        "Choose second image",
         type=['png', 'jpg', 'jpeg', 'webp'],
         help="Upload second reference image - will be converted to 9:16 format",
-        key="uploader_2"
+        key="uploader_2",
+        label_visibility="collapsed"
     )
     if uploaded_file_2 is not None:
         try:
             image_2 = Image.open(uploaded_file_2)
-            # Apply orientation fix and resize
-            image_2 = fix_image_orientation_and_resize(image_2)
-            st.image(image_2, caption="Reference 2 (9:16)", width=300)
-            # Save processed image in session_state
+            image_2 = fix_image_orientation(image_2)
+
+            # Crop position selector
+            st.markdown("**Crop Position:**")
+            width, height = image_2.size
+            target_ratio = 9 / 16
+            current_ratio = width / height
+
+            if current_ratio > target_ratio:
+                crop_pos_2 = st.radio(
+                    "Horizontal crop alignment",
+                    options=['left', 'center', 'right'],
+                    index=1,
+                    key="crop_pos_2",
+                    horizontal=True
+                )
+            elif current_ratio < target_ratio:
+                crop_pos_2 = st.radio(
+                    "Vertical crop alignment",
+                    options=['top', 'center', 'bottom'],
+                    index=1,
+                    key="crop_pos_2",
+                    horizontal=True
+                )
+            else:
+                crop_pos_2 = 'center'
+
+            # Apply crop and show preview
+            cropped_2 = crop_to_9_16(image_2.copy(), crop_pos_2)
+            st.image(cropped_2, caption="Crop Preview (9:16)", use_column_width=True)
+
+            # Save processed image
+            final_image_2 = resize_to_final(cropped_2)
             buf = io.BytesIO()
-            image_2.save(buf, format='PNG')
+            final_image_2.save(buf, format='PNG')
             buf.seek(0)
             st.session_state['image_2'] = buf
+
         except Exception as e:
             st.error(f"Error loading image 2: {e}")
 
@@ -436,23 +535,23 @@ with st.expander("ℹ️ How It Works"):
     st.markdown("""
     ### Generation Process:
 
-    1. **Upload References**: You upload 1-2 images
-    2. **Automatic Processing**: Images are converted to 9:16 format (1080x1920)
-    3. **Orientation Fix**: EXIF data is used for proper rotation
-    4. **Description**: You specify a prompt describing the desired result
-    5. **Generation**: Nano Banana model processes request via Replicate API
-    6. **Result**: You receive up to 3 new images in 9:16 format
+    1. **Upload References**: Upload 1-2 images
+    2. **Adjust Crop**: Use the interactive crop position controls to preview and adjust how your image will be cropped to 9:16 format
+    3. **EXIF Fix**: Orientation is automatically corrected based on image metadata
+    4. **Write Prompt**: Describe the desired transformation or style
+    5. **AI Generation**: Nano Banana model processes your request via Replicate API
+    6. **Download**: Receive up to 3 new images in perfect 9:16 format
 
     ### App Features:
-    - **9:16 Format**: All images automatically converted to vertical format
-    - **No Flipping**: EXIF orientation handled automatically
-    - **Dark Style**: Metallic interface design
-    - **Custom Font**: ArexaDemo for unique visual appeal
-    - **Limitation**: Maximum 3 results for optimal viewing
+    - **Interactive Crop Preview**: See exactly how your image will be cropped before generation
+    - **9:16 Format**: Perfect for Instagram Stories, TikTok, and vertical social media
+    - **EXIF Auto-Correction**: No more sideways or upside-down images
+    - **Light Theme**: Clean, modern interface with Source Sans Pro font
+    - **AI-Powered**: Advanced image-to-image transformation
 
     ### Model: google/nano-banana
     - Fast image generation
-    - Image-to-image transformation support
+    - High-quality image-to-image transformations
     - Works via Replicate API
     """)
 
@@ -460,11 +559,11 @@ with st.expander("ℹ️ How It Works"):
 st.divider()
 st.markdown("""
 <div style='text-align: center; padding: 20px;'>
-    <p style='color: #ffffff; font-size: calc(0.9rem + 2px);'>
-        Powered by Google Nano Banana via Replicate | Streamlit
+    <p style='color: #1a1a1a; font-size: calc(0.9rem + 2px); font-weight: 600;'>
+        🐱 CAT REFACER - Powered by Google Nano Banana via Replicate
     </p>
-    <p style='color: #cccccc; font-size: calc(0.8rem + 2px);'>
-        Format: 9:16 | EXIF Auto-Correction | Metal Dark Theme
+    <p style='color: #666666; font-size: calc(0.8rem + 2px);'>
+        Format: 9:16 | EXIF Auto-Correction | Interactive Crop Preview
     </p>
 </div>
 """, unsafe_allow_html=True)
