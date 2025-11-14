@@ -234,16 +234,6 @@ except Exception as e:
     st.error("⚠️ Error connecting to Replicate API. Check your token in secrets.toml")
     st.stop()
 
-# Header logo in top-left corner
-try:
-    st.markdown("""
-    <div class="header-logo">
-        <img src="data:image/png;base64,{}" alt="Logo">
-    </div>
-    """.format(__import__('base64').b64encode(open('logi.png', 'rb').read()).decode()), unsafe_allow_html=True)
-except:
-    pass  # Logo not found
-
 # Title
 st.title("🐱 CAT REFACER")
 st.markdown("### AI-Powered 9:16 Image Generator")
@@ -251,7 +241,20 @@ st.markdown("Upload up to 2 reference images and describe your desired result. A
 
 # Sidebar
 with st.sidebar:
-    st.markdown("### 📊 Statistics")
+    # Logo at the top of sidebar
+    try:
+        import base64
+        with open('logi.png', 'rb') as f:
+            logo_data = base64.b64encode(f.read()).decode()
+        st.markdown(f"""
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <img src="data:image/png;base64,{logo_data}" alt="Logo" style="max-width: 150px; width: 100%;">
+        </div>
+        """, unsafe_allow_html=True)
+    except:
+        pass  # Logo not found
+
+    st.divider()
 
     if 'generated_count' in st.session_state:
         st.metric("Images Created", st.session_state['generated_count'])
@@ -555,15 +558,260 @@ with st.expander("ℹ️ How It Works"):
     - Works via Replicate API
     """)
 
+# ============================================================================
+# WAN VIDEO GENERATION SECTION
+# ============================================================================
+st.divider()
+st.header("🎬 Image-to-Video Generation")
+st.markdown("Transform your static images into dynamic videos using AI-powered motion.")
+
+wan_col1, wan_col2 = st.columns([1, 1])
+
+with wan_col1:
+    st.subheader("📷 Input Image")
+
+    wan_image_source = st.radio(
+        "Choose image source:",
+        options=["Upload new image", "Use generated image from above"],
+        key="wan_image_source"
+    )
+
+    wan_input_image = None
+
+    if wan_image_source == "Upload new image":
+        wan_uploaded = st.file_uploader(
+            "Upload image for video generation",
+            type=['png', 'jpg', 'jpeg', 'webp'],
+            key="wan_uploader"
+        )
+        if wan_uploaded is not None:
+            wan_input_image = Image.open(wan_uploaded)
+            st.image(wan_input_image, caption="Input for video", use_column_width=True)
+
+            # Save to session state
+            buf = io.BytesIO()
+            wan_input_image.save(buf, format='PNG')
+            buf.seek(0)
+            st.session_state['wan_input_image'] = buf
+    else:
+        if 'generated_images' in st.session_state and st.session_state['generated_images']:
+            selected_idx = st.selectbox(
+                "Select generated image:",
+                options=range(len(st.session_state['generated_images'])),
+                format_func=lambda x: f"Result {x + 1}"
+            )
+            wan_input_image = st.session_state['generated_images'][selected_idx]
+            st.image(wan_input_image, caption=f"Result {selected_idx + 1}", use_column_width=True)
+
+            # Save to session state
+            buf = io.BytesIO()
+            wan_input_image.save(buf, format='PNG')
+            buf.seek(0)
+            st.session_state['wan_input_image'] = buf
+        else:
+            st.info("No generated images available. Please generate images first or upload a new one.")
+
+with wan_col2:
+    st.subheader("✍️ Motion Prompt")
+
+    wan_prompt = st.text_area(
+        "Describe the desired motion:",
+        placeholder="Example: Close-up shot of an elderly sailor wearing a yellow raincoat, seated on the deck of a catamaran, slowly puffing on a pipe...",
+        height=150,
+        key="wan_prompt",
+        help="Describe the motion, camera movement, and atmosphere you want in the video"
+    )
+
+    # WAN prompt examples
+    with st.expander("📝 Motion Prompt Examples"):
+        wan_examples = [
+            "The camera slowly zooms in, capturing gentle movements and atmospheric details",
+            "Smooth pan from left to right, revealing the scene gradually",
+            "Subtle movements - hair flowing in the wind, leaves rustling",
+            "Dynamic camera push-in with dramatic lighting changes",
+            "Circular camera movement around the subject with soft focus"
+        ]
+        for idx, example in enumerate(wan_examples):
+            if st.button(example, key=f"wan_example_{idx}"):
+                st.session_state['wan_prompt_text'] = example
+                st.rerun()
+
+    if 'wan_prompt_text' in st.session_state and st.session_state.get('wan_prompt_text'):
+        wan_prompt = st.session_state['wan_prompt_text']
+
+# Generate video button
+wan_generate_button = st.button(
+    "🎥 Generate Video",
+    type="primary",
+    use_container_width=True,
+    disabled=(wan_input_image is None),
+    key="wan_generate"
+)
+
+if wan_generate_button:
+    if not wan_prompt or len(wan_prompt.strip()) < 10:
+        st.warning("⚠️ Please enter a motion description (minimum 10 characters)")
+    elif wan_input_image is None:
+        st.warning("⚠️ Please select or upload an image")
+    else:
+        with st.spinner("🎬 Generating video... This may take 60-120 seconds..."):
+            try:
+                # Prepare input for WAN
+                st.session_state['wan_input_image'].seek(0)
+
+                input_data = {
+                    "image": st.session_state['wan_input_image'],
+                    "prompt": wan_prompt
+                }
+
+                # Run WAN model
+                output = replicate_client.run(
+                    "wan-video/wan-2.2-i2v-fast",
+                    input=input_data
+                )
+
+                if output:
+                    # Save video to session state
+                    video_data = output.read()
+                    st.session_state['wan_video'] = video_data
+
+                    # Update counter
+                    if 'video_count' not in st.session_state:
+                        st.session_state['video_count'] = 0
+                    st.session_state['video_count'] += 1
+
+                    st.success("✅ Video generated successfully!")
+                else:
+                    st.error("❌ Failed to generate video")
+
+            except Exception as e:
+                st.error(f"❌ Video generation error: {str(e)}")
+                st.info("""
+                **Possible causes:**
+                - Check REPLICATE_API_TOKEN
+                - Ensure wan-video/wan-2.2-i2v-fast model is available
+                - Check API limits
+                """)
+
+# Display generated video
+if 'wan_video' in st.session_state and st.session_state['wan_video']:
+    st.divider()
+    st.subheader("🎥 Generated Video")
+
+    video_col1, video_col2 = st.columns([2, 1])
+
+    with video_col1:
+        st.video(st.session_state['wan_video'])
+
+    with video_col2:
+        st.markdown("### 📥 Download")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        st.download_button(
+            label="⬇️ Download Video (MP4)",
+            data=st.session_state['wan_video'],
+            file_name=f"wan_video_{timestamp}.mp4",
+            mime="video/mp4",
+            use_container_width=True
+        )
+
+        if 'video_count' in st.session_state:
+            st.metric("Videos Generated", st.session_state['video_count'])
+
+# ============================================================================
+# TTM MOTION CONTROL SECTION
+# ============================================================================
+st.divider()
+st.header("🎯 TTM Motion Control")
+st.markdown("Advanced motion control for video generation using Time-to-Move technique.")
+
+with st.expander("ℹ️ About TTM (Time-to-Move)"):
+    st.markdown("""
+    ### What is TTM?
+
+    **Time-to-Move** is a training-free motion control technique that can be integrated into any image-to-video model.
+
+    ### Key Features:
+    - **Dual-Clock Denoising**: Precise control over when different regions start moving
+    - **Plug-and-Play**: Works with WAN 2.2, CogVideoX, and Stable Video Diffusion
+    - **No Training Required**: Apply motion control without model retraining
+
+    ### How It Works:
+    TTM uses two hyperparameters:
+    - **tweak-index** (0-10): Controls motion timing
+    - **tstrong-index** (0-10): Controls motion strength
+
+    ### GitHub Repository:
+    [time-to-move/TTM](https://github.com/time-to-move/TTM)
+    """)
+
+ttm_col1, ttm_col2 = st.columns([1, 1])
+
+with ttm_col1:
+    st.subheader("⚙️ TTM Parameters")
+
+    ttm_tweak = st.slider(
+        "Tweak Index",
+        min_value=0,
+        max_value=10,
+        value=3,
+        help="Controls when motion begins (0-10)"
+    )
+
+    ttm_tstrong = st.slider(
+        "Strong Index",
+        min_value=0,
+        max_value=10,
+        value=7,
+        help="Controls motion strength (0-10)"
+    )
+
+    st.info(f"""
+    **Current Settings:**
+    - Tweak Index: {ttm_tweak}
+    - Strong Index: {ttm_tstrong}
+
+    These parameters control the dual-clock denoising process for precise motion control.
+    """)
+
+with ttm_col2:
+    st.subheader("📝 Implementation Notes")
+
+    st.markdown("""
+    ### Integration Status:
+
+    TTM is a Python-based technique that requires:
+    - PyTorch installation
+    - GUI tools for cut-and-drag motion
+    - Integration with video generation models
+
+    ### Next Steps:
+    To fully implement TTM, you would need to:
+    1. Set up a Python backend service
+    2. Install TTM dependencies
+    3. Create motion masks using the GUI tool
+    4. Process videos with TTM parameters
+
+    ### Current Implementation:
+    This section demonstrates the TTM parameter controls. Full implementation requires backend setup with the TTM repository.
+
+    **GitHub**: [time-to-move/TTM](https://github.com/time-to-move/TTM)
+    """)
+
+st.info("""
+💡 **Note**: Full TTM integration requires a Python backend with PyTorch.
+The current interface demonstrates the parameter controls that would be used with TTM.
+For production use, consider deploying TTM as a separate service and calling it via API.
+""")
+
 # Footer
 st.divider()
 st.markdown("""
 <div style='text-align: center; padding: 20px;'>
     <p style='color: #1a1a1a; font-size: calc(0.9rem + 2px); font-weight: 600;'>
-        🐱 CAT REFACER - Powered by Google Nano Banana via Replicate
+        🐱 CAT REFACER - Powered by Google Nano Banana & WAN Video via Replicate
     </p>
     <p style='color: #666666; font-size: calc(0.8rem + 2px);'>
-        Format: 9:16 | EXIF Auto-Correction | Interactive Crop Preview
+        Image Generation: 9:16 Format | Video Generation: WAN 2.2 | Motion Control: TTM
     </p>
 </div>
 """, unsafe_allow_html=True)
